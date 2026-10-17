@@ -373,20 +373,121 @@ fn aa_card(casts: &[Value]) -> Value {
     serde_json::json!({"id": 30501, "name": format!("Hammer autos · {} casts", casts.len()), "card": rows})
 }
 
+/// Width units of one cheat sheet token: a skill 1, Electro-whirl + Shrapnel 2, the filler slot 1.5,
+/// an auto chain by its length.
+fn sheet_units(t: &Value) -> f32 {
+    match t["t"].as_str() {
+        Some("ew") => 2.0,
+        Some("slot") => 1.5,
+        Some("aa") => (t["n"].as_f64().unwrap_or(1.0) as f32 * 0.36).max(1.1),
+        _ => 1.0,
+    }
+}
+
+/// One row of cheat sheet tokens at `[x, top]`, icons `sz` tall, then the usual skills left out;
+/// sets `tip` to the hovered token's card.
+#[allow(clippy::too_many_arguments)]
+fn sheet_toks(ui: &Ui, dl: &DrawListMut, mut x: f32, top: f32, sz: f32, toks: &[Value], miss: &[Value], floats: bool, icons: &HashMap<u32, String>, cy: f32, tip: &mut Option<(STip, f32)>) {
+    for t in toks {
+        let ww = sz * sheet_units(t);
+        let id = t["id"].as_u64().unwrap_or(0) as u32;
+        let tp = [x, top];
+        match t["t"].as_str() {
+            Some("ew") => {
+                icon(ui, dl, tp, sz, 30088, "EW", icons, false);
+                icon(ui, dl, [x + sz, top], sz, 5807, "Shrap", icons, false);
+            }
+            Some("aa") => {
+                dl.add_rect(tp, [x + ww, top + sz], rgb(42, 43, 46)).filled(true).build();
+                icon(ui, dl, [x + 2.0, top + sz * 0.17], sz * 0.66, 30501, "AA", icons, false);
+                rtxt(ui, dl, F::SemiS, [x + ww - 3.0, top + sz / 2.0 - 7.0], INK2, &t["n"].to_string());
+            }
+            Some("slot") => {
+                dashed_rect(dl, [x + 2.0, top], [x + ww - 2.0, top + sz], MUTED, 1.5);
+                let lw = tw(ui, F::Tiny, "filler");
+                txt(dl, F::Tiny, [x + (ww - lw) / 2.0, top + sz / 2.0 - 7.0], INK2, "filler");
+            }
+            _ => icon(ui, dl, tp, sz, id, t["name"].as_str().unwrap_or(""), icons, false),
+        }
+        if t["t"] != "slot" {
+            dl.add_rect([x, top + sz], [x + ww, top + sz + 3.0], kit_c(t["kit"].as_str().unwrap_or(""))).filled(true).build();
+        }
+        if floats && t["usual"] == false {
+            dashed_rect(dl, tp, [x + ww, top + sz], ACCENT, 1.5);
+        }
+        // instants above
+        if let Some(m) = t["marks"].as_array() {
+            for (j, mid) in m.iter().enumerate() {
+                let mid = mid.as_u64().unwrap_or(0) as u32;
+                let ms = (sz * 0.38).max(8.0);
+                let mp = [x + j as f32 * (ms + 1.0), top - ms - 2.0];
+                icon(ui, dl, mp, ms, mid, "", icons, false);
+                if mid == 76326 {
+                    dl.add_rect(mp, [mp[0] + ms, mp[1] + ms], rgb(208, 71, 58)).thickness(1.5).build();
+                }
+            }
+        }
+        if ui.is_mouse_hovering_rect(tp, [x + ww, top + sz + 3.0]) {
+            dl.add_rect([x - 1.0, top - 1.0], [x + ww + 1.0, top + sz + 1.0], INK).build();
+            *tip = Some((STip::Icon(serde_json::json!({"id": id, "name": t["name"], "card": t["card"]})), cy));
+        }
+        x += ww;
+    }
+    for m in miss {
+        let id = m["id"].as_u64().unwrap_or(0) as u32;
+        x += 4.0;
+        icon(ui, dl, [x, top], sz, id, m["name"].as_str().unwrap_or(""), icons, true);
+        dashed_rect(dl, [x, top], [x + sz, top + sz], BAD, 1.5);
+        x += sz;
+    }
+}
+
+fn arr(v: &Value) -> Vec<Value> {
+    v.as_array().cloned().unwrap_or_default()
+}
+
+/// The cheat sheet: the structure on top (opener, then each mini loop's fixed casts with a slot for
+/// the filler), then one row per cycle with just its filler. The bomb burst column only holds one
+/// skill, so it is narrow.
 fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value, icons: &HashMap<u32, String>) -> Option<(STip, f32)> {
     const LBL: f32 = 46.0;
     const GAPX: f32 = 3.0;
     let (x0, w) = (p[0], size[0]);
     let mut y = p[1];
-    let cw = (w - LBL - 3.0 * GAPX) / 3.0;
     let mut tip = None;
-    for (k, h) in ["Bomb burst", "Nade filler", "Other filler"].iter().enumerate() {
-        txt(dl, F::Small, [x0 + LBL + GAPX + k as f32 * (cw + GAPX), y], MUTED, h);
+    // the structure: boxes as wide as their tokens
+    let st = arr(&s["structure"]);
+    if !st.is_empty() {
+        let us: Vec<f32> = st.iter().map(|c| arr(&c["tokens"]).iter().map(sheet_units).sum::<f32>()).collect();
+        let room = w - GAPX * (st.len() as f32 - 1.0) - 12.0 * st.len() as f32;
+        let sz = (room / us.iter().sum::<f32>().max(1.0)).min(34.0).floor();
+        let bh = 18.0 + 12.0 + sz + 8.0;
+        let mut x = x0;
+        for (c, u) in st.iter().zip(&us) {
+            let bw = u * sz + 12.0;
+            let (a, b) = ([x, y], [x + bw, y + bh]);
+            dl.add_rect(a, b, rgb(26, 26, 25)).filled(true).rounding(5.0).build();
+            dl.add_rect(a, b, BORDER).rounding(5.0).build();
+            txt(dl, F::Small, [a[0] + 6.0, a[1] + 2.0], INK2, c["name"].as_str().unwrap_or(""));
+            sheet_toks(ui, dl, a[0] + 6.0, a[1] + 30.0, sz, &arr(&c["tokens"]), &[], false, icons, y + bh / 2.0, &mut tip);
+            x += bw + GAPX;
+        }
+        y += bh + 8.0;
+    }
+    // the rows: just the filler
+    let rows = arr(&s["rows"]);
+    let n = rows.len().max(1) as f32;
+    let h = ((p[1] + size[1] - y - 18.0 - 3.0 * (n - 1.0)) / n).clamp(40.0, 80.0);
+    let szmax = (h - 26.0).min(40.0);
+    let n0 = rows.iter().map(|r| arr(&r["cells"][0]["tokens"]).len() + arr(&r["cells"][0]["missing"]).len()).max().unwrap_or(1).max(1) as f32;
+    let c0 = (n0 * (szmax + 4.0) + 12.0).max(tw(ui, F::Small, "Bomb burst") + 10.0);
+    let cw = (w - LBL - c0 - 3.0 * GAPX) / 2.0;
+    let colx = [x0 + LBL + GAPX, x0 + LBL + GAPX + c0 + GAPX, x0 + LBL + GAPX + c0 + GAPX + cw + GAPX];
+    let colw = [c0, cw, cw];
+    for (k, hd) in ["Bomb burst", "Nade filler", "Other filler"].iter().enumerate() {
+        txt(dl, F::Small, [colx[k], y], MUTED, hd);
     }
     y += 18.0;
-    let rows = s["rows"].as_array().cloned().unwrap_or_default();
-    let n = rows.len().max(1) as f32;
-    let h = ((p[1] + size[1] - y - 3.0 * (n - 1.0)) / n).clamp(40.0, 96.0);
     for r in &rows {
         let cy = y + h / 2.0;
         txt(dl, F::Bold, [x0 + 2.0, cy - 16.0], INK, &r["n"].to_string());
@@ -396,67 +497,17 @@ fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value,
             if c.is_null() {
                 continue;
             }
-            let a = [x0 + LBL + GAPX + k as f32 * (cw + GAPX), y];
-            let b = [a[0] + cw, y + h];
+            let a = [colx[k], y];
+            let b = [a[0] + colw[k], y + h];
             dl.add_rect(a, b, rgb(26, 26, 25)).filled(true).rounding(5.0).build();
             dl.add_rect(a, b, BORDER).rounding(5.0).build();
             txt(dl, F::Tiny, [a[0] + 6.0, a[1] + 3.0], MUTED, c["label"].as_str().unwrap_or(""));
-            let toks = c["tokens"].as_array().cloned().unwrap_or_default();
-            let miss = c["missing"].as_array().cloned().unwrap_or_default();
-            let u = |t: &Value| match t["t"].as_str() {
-                Some("ew") => 2.0,
-                Some("aa") => (t["n"].as_f64().unwrap_or(1.0) as f32 * 0.36).max(1.1),
-                _ => 1.0,
-            };
-            let total: f32 = toks.iter().map(u).sum::<f32>() + miss.len() as f32;
-            let top = a[1] + 30.0;
-            let sz = ((cw - 12.0) / total.max(1.0)).min(40.0).min(b[1] - top - 6.0).max(10.0).floor();
-            let mut x = a[0] + 6.0;
-            for t in &toks {
-                let ww = sz * u(t);
-                let id = t["id"].as_u64().unwrap_or(0) as u32;
-                let tp = [x, top];
-                match t["t"].as_str() {
-                    Some("ew") => {
-                        icon(ui, dl, tp, sz, 30088, "EW", icons, false);
-                        icon(ui, dl, [x + sz, top], sz, 5807, "Shrap", icons, false);
-                    }
-                    Some("aa") => {
-                        dl.add_rect(tp, [x + ww, top + sz], rgb(42, 43, 46)).filled(true).build();
-                        icon(ui, dl, [x + 2.0, top + sz * 0.17], sz * 0.66, 30501, "AA", icons, false);
-                        rtxt(ui, dl, F::SemiS, [x + ww - 3.0, top + sz / 2.0 - 7.0], INK2, &t["n"].to_string());
-                    }
-                    _ => icon(ui, dl, tp, sz, id, t["name"].as_str().unwrap_or(""), icons, false),
-                }
-                dl.add_rect([x, top + sz], [x + ww, top + sz + 3.0], kit_c(t["kit"].as_str().unwrap_or(""))).filled(true).build();
-                if t["usual"] == false {
-                    dashed_rect(dl, tp, [x + ww, top + sz], ACCENT, 1.5);
-                }
-                // instants above
-                if let Some(m) = t["marks"].as_array() {
-                    for (j, mid) in m.iter().enumerate() {
-                        let mid = mid.as_u64().unwrap_or(0) as u32;
-                        let ms = (sz * 0.38).max(8.0);
-                        let mp = [x + j as f32 * (ms + 1.0), top - ms - 2.0];
-                        icon(ui, dl, mp, ms, mid, "", icons, false);
-                        if mid == 76326 {
-                            dl.add_rect(mp, [mp[0] + ms, mp[1] + ms], rgb(208, 71, 58)).thickness(1.5).build();
-                        }
-                    }
-                }
-                if ui.is_mouse_hovering_rect(tp, [x + ww, top + sz + 3.0]) {
-                    dl.add_rect([x - 1.0, top - 1.0], [x + ww + 1.0, top + sz + 1.0], INK).build();
-                    tip = Some((STip::Icon(serde_json::json!({"id": id, "name": t["name"], "card": t["card"]})), cy));
-                }
-                x += ww;
-            }
-            for m in &miss {
-                let id = m["id"].as_u64().unwrap_or(0) as u32;
-                x += 4.0;
-                icon(ui, dl, [x, top], sz, id, m["name"].as_str().unwrap_or(""), icons, true);
-                dashed_rect(dl, [x, top], [x + sz, top + sz], BAD, 1.5);
-                x += sz;
-            }
+            let toks = arr(&c["tokens"]);
+            let miss = arr(&c["missing"]);
+            let total: f32 = toks.iter().map(sheet_units).sum::<f32>() + miss.len() as f32;
+            let top = a[1] + 22.0;
+            let sz = ((colw[k] - 12.0 - 4.0 * miss.len() as f32) / total.max(1.0)).min(szmax).min(b[1] - top - 5.0).max(10.0).floor();
+            sheet_toks(ui, dl, a[0] + 6.0, top, sz, &toks, &miss, true, icons, cy, &mut tip);
         }
         y += h + 3.0;
     }
@@ -707,6 +758,8 @@ mod tests {
         }
         let s = get("/api/scrapper/sheet");
         let toks: usize = s["rows"].as_array().unwrap().iter().flat_map(|r| r["cells"].as_array().unwrap().iter().filter(|c| !c.is_null())).map(|c| c["tokens"].as_array().unwrap().len()).sum();
+        let st = s["structure"].as_array().unwrap();
+        assert!(st.len() == 4 && st.iter().all(|c| c["name"].is_string() && c["tokens"].as_array().is_some_and(|t| !t.is_empty())));
         println!("{latest}: {} rows, {icons} casts; sheet {toks} tokens", v["rows"].as_array().unwrap().len());
         assert!(icons > 0 && toks > 0);
     }

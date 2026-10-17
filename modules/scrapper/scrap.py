@@ -657,6 +657,21 @@ def bench_sheet():
             t["end"] -= t0
         if "shrap" in t:
             t["shrap"] -= t0
+    # each mini loop's filler: what's left once its fixed part is shown in the structure on top.
+    # Bomb burst: only its floating skills. Nade and other filler: from the end of the leading run of
+    # usual casts (whirl + Shrapnel, Freeze and Poison).
+    for r in out:
+        for i, m in enumerate(r["minis"]):
+            if m is None:
+                continue
+            ts = m["tokens"]
+            if i == 0:
+                m["filler"] = [t for t in ts if t["kind"] == "skill" and not t["usual"]]
+            else:
+                j = 0
+                while j < len(ts) and (ts[j]["kind"] == "ew" or (ts[j]["kind"] == "skill" and ts[j]["usual"])):
+                    j += 1
+                m["filler"] = ts[j:]
     order = {}
     for r in full:
         for i, m in enumerate(out[rows.index(r)]["minis"]):
@@ -667,7 +682,23 @@ def bench_sheet():
                            "kit": KIT.get(x, "")} for x in usual[i]),
                          key=lambda d: sum(order.get((i, d["id"]), [99])) / len(order.get((i, d["id"]), [1])))
                   for i in range(3)]
-    return {"rows": out, "usual": usual_list, "player": b["player"], "log": PERMALINK,
+    # the structure: the opener, then each mini loop's fixed casts from the first full cycle that has it, with a
+    # "filler" slot where its floating skills go
+    slot = {"kind": "slot", "id": 0, "name": "filler", "kit": "", "usual": True, "marks": []}
+    structure = [{"name": "Opener", "tokens": out[0]["pre"] if out else []}]
+    for i, name in enumerate(["Bomb burst", "Nade filler", "Other filler"]):
+        m = next((out[rows.index(r)]["minis"][i] for r in full
+                  if i < len(out[rows.index(r)]["minis"]) and out[rows.index(r)]["minis"][i]), None)
+        ts = m["tokens"] if m else []
+        fill = {id(t) for t in m["filler"]} if m else set()
+        fixed, at = [], None
+        for t in ts:
+            if id(t) in fill:
+                at = len(fixed) if at is None else at
+            elif t["kind"] != "aa":
+                fixed.append(t)
+        structure.append({"name": name, "tokens": fixed[:at] + [slot] + fixed[at:] if at is not None else fixed + [slot]})
+    return {"rows": out, "usual": usual_list, "structure": structure, "player": b["player"], "log": PERMALINK,
             "secs": round((b["end"] - t0) / 1000, 1), "full": len(full)}
 
 

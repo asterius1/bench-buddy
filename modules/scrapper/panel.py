@@ -251,31 +251,35 @@ def panel(path):
 
 
 def sheet():
-    """The bench rotation for the addon's cheat sheet view: rows of three cells of tokens."""
+    """The bench rotation for the addon's cheat sheet view: the structure on top (opener and the fixed
+    part of each mini loop, with a slot for the filler), then rows of three cells of just the filler."""
     s = scrap.bench_sheet()
+    tok = lambda t: {"t": t["kind"], "id": t["id"], "name": t["name"], "n": t.get("n", 1),
+                     "kit": t.get("kit", ""), "usual": t.get("usual", True),
+                     "marks": [k2["id"] for k2 in t.get("marks", [])], "card": _sheet_card(t)}
     rows = []
     for r in s["rows"]:
         cells = []
         for k in range(3):
             m = r["minis"][k] if k < len(r["minis"]) else None
             if m is None and k == 0 and r["pre"]:
-                toks, miss, label = r["pre"], [], "opener"
-            elif m is None:
+                cells.append({"label": "opener", "len": None, "tokens": [], "missing": []})
+                continue
+            if m is None:
                 cells.append(None)
                 continue
-            else:
-                toks, miss, label = m["tokens"], m["missing"], f"+{m['start'] / 1000:.1f} s"
-            cells.append({"label": label, "len": m["len"] if m else None,
-                          "tokens": [{"t": t["kind"], "id": t["id"], "name": t["name"], "n": t.get("n", 1),
-                                      "kit": t.get("kit", ""), "usual": t.get("usual", True),
-                                      "marks": [k2["id"] for k2 in t.get("marks", [])],
-                                      "card": _sheet_card(t)} for t in toks],
-                          "missing": [{"id": y["id"], "name": y["name"], "kit": y.get("kit", "")} for y in miss]})
+            cells.append({"label": f"+{m['start'] / 1000:.1f} s", "len": m["len"],
+                          "tokens": [tok(t) for t in m["filler"]],
+                          "missing": [{"id": y["id"], "name": y["name"], "kit": y.get("kit", "")} for y in m["missing"]]})
         rows.append({"n": r["n"], "start": clk(r["start"]), "len": r["len"], "cells": cells})
-    return {"kind": "sheet", "rows": rows, "usual": [[u["id"] for u in col if u["id"] not in scrap.SHOWN_INSTANT] for col in s["usual"]]}
+    return {"kind": "sheet", "rows": rows,
+            "structure": [{"name": c["name"], "tokens": [tok(t) for t in c["tokens"]]} for c in s["structure"]],
+            "usual": [[u["id"] for u in col if u["id"] not in scrap.SHOWN_INSTANT] for col in s["usual"]]}
 
 
 def _sheet_card(t):
+    if t["kind"] == "slot":
+        return [["", "the floating skills of each cycle go here (see the rows below)", 0]]
     rows = [["At", clk(t["t"]), 0]]
     if t["kind"] == "aa":
         rows = [["Auto casts", str(t["n"]), 0], ["From", clk(t["t"]), 0], ["Length", sec(t["end"] - t["t"]), 0]]

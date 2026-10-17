@@ -3,7 +3,7 @@
 Your Condition Berserker golem pulls against the Snow Crows bench
 ([build](https://snowcrows.com/builds/raids/warrior/condition-berserker-longbow-sword-torch),
 [bench log](https://dps.report/YPVM-20260720-095643_golem)). Served by the checker at
-http://127.0.0.1:8771/ (`run.bat`).
+http://127.0.0.1:8771/berserker (`run.bat`).
 
 | File | What it does |
 |---|---|

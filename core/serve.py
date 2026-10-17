@@ -1,4 +1,5 @@
-"""The Bench Buddy checker: http://127.0.0.1:8771/ (Condi Berserker) and /scrapper (Power Scrapper)
+"""The Bench Buddy checker: http://127.0.0.1:8771/ opens the build of the newest golem log; /berserker
+(Condi Berserker) and /scrapper (Power Scrapper)
 
     python core/serve.py [port] [--no-browser]       (or double-click run.bat)
 
@@ -172,6 +173,34 @@ def simple_logs(m):
     return seen["logs"]
 
 
+def newest_route():
+    """The route of the build whose newest golem log is the newest of all."""
+    found = [(ls[-1].stem, route) for ls, route in [(logs(), "berserker"), (scrap_logs(), "scrapper")]
+             + [(simple_logs(m), m.ROUTE) for m in SIMPLE] if ls]
+    return max(found)[1] if found else "berserker"
+
+
+# A build picker in the top right corner of every page, filled from /api/modules.
+BUILDS_HTML = """<div id="bb-builds" style="position:fixed;top:8px;right:12px;z-index:100;font:12px system-ui,sans-serif">
+<select style="background:#1c1c1b;color:#c3c2b7;border:1px solid #3a3a38;border-radius:6px;padding:3px 6px;font:inherit"></select></div>
+<script>(async () => {
+  const sel = document.querySelector("#bb-builds select");
+  const here = location.pathname.split("/")[1];
+  const mods = await fetch("/api/modules").then(r => r.json()).catch(() => []);
+  for (const m of mods) {
+    const o = new Option(m.name, m.route, false, m.route === here);
+    sel.add(o);
+  }
+  sel.onchange = () => { location.href = "/" + sel.value; };
+})();</script>
+"""
+
+
+def with_builds(html):
+    i = html.rfind("</body>")
+    return html[:i] + BUILDS_HTML + html[i:] if i >= 0 else html + BUILDS_HTML
+
+
 def simple_get(m, path, q):
     """The simple contract's routes: /<route>, /api/<route>/latest, /history, /compare?log=."""
     if path == f"/{m.ROUTE}":
@@ -221,6 +250,8 @@ def view_page(name, stem):
 
 class Handler(BaseHTTPRequestHandler):
     def send(self, body, ctype="application/json"):
+        if ctype == "text/html" and isinstance(body, str) and not self.path.startswith("/view/"):   # not in frames
+            body = with_builds(body)
         b = body.encode("utf-8") if isinstance(body, str) else body
         self.send_response(200)
         self.send_header("Content-Type", ctype + "; charset=utf-8")
@@ -229,12 +260,22 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(b)
 
+    def go(self, where):
+        self.send_response(302)
+        self.send_header("Location", where)
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+
     def do_GET(self):
         u = urlparse(self.path)
         q = parse_qs(u.query)
+        if u.path != "/" and u.path.endswith("/"):   # /scrapper/ is /scrapper
+            return self.go(u.path.rstrip("/") + (f"?{u.query}" if u.query else ""))
         try:
             with _lock:
-                if u.path == "/":
+                if u.path == "/":   # the build with the newest golem log
+                    return self.go("/" + newest_route())
+                if u.path == "/berserker":
                     return self.send((BERS / "page.html").read_text(encoding="utf-8"), "text/html")
                 if u.path == "/api/root":   # the addon starts core/live_server.py from here
                     return self.send(json.dumps({"root": str(ROOT)}))
@@ -277,7 +318,7 @@ class Handler(BaseHTTPRequestHandler):
                 if u.path == "/api/icons":
                     return self.send(json.dumps(local.icons()))
                 if u.path == "/api/modules":
-                    return self.send(json.dumps([{"name": "Condi Berserker", "route": ""}, {"name": "Power Scrapper", "route": "scrapper"}]
+                    return self.send(json.dumps([{"name": "Condi Berserker", "route": "berserker"}, {"name": "Power Scrapper", "route": "scrapper"}]
                                                 + [{"name": m.NAME, "route": m.ROUTE} for m in SIMPLE]))
                 for m in SIMPLE:
                     hit = simple_get(m, u.path, q)
@@ -300,7 +341,7 @@ def main():
     port = int(nums[0]) if nums else PORT
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}/"
-    print(f"Bench Buddy: Berserker on {url}, Scrapper on {url}scrapper (Ctrl+C to stop; code changes are picked up by themselves)", flush=True)
+    print(f"Bench Buddy on {url}: Berserker on {url}berserker, Scrapper on {url}scrapper (Ctrl+C to stop; code changes are picked up by themselves)", flush=True)
     for m in SIMPLE:
         print(f"  {m.NAME} on {url}{m.ROUTE}", flush=True)
     if "--no-browser" not in sys.argv:

@@ -14,7 +14,7 @@ the bench log, once, from dps.report.
 
 | Build | Page | In game |
 |---|---|---|
-| Condi Berserker (longbow + sword/torch) | http://127.0.0.1:8771/ | Splits panel, fills in live during a pull |
+| Condi Berserker (longbow + sword/torch) | http://127.0.0.1:8771/berserker | Splits panel, fills in live during a pull |
 | Power Scrapper (hammer) | http://127.0.0.1:8771/scrapper | Cycle grid and the bench cheat sheet |
 
 Your build isn't here yet? See [Add your own build](#add-your-own-build) below. It's written so you
@@ -33,7 +33,7 @@ can do it with an AI coding agent even if you don't program.
 ## Start
 
 1. Download this repository (Code > Download ZIP, or `git clone`).
-2. Double-click `run.bat`. A browser tab opens on http://127.0.0.1:8771/. Leave the window running.
+2. Double-click `run.bat`. A browser tab opens on http://127.0.0.1:8771/, which shows the build of your newest golem log (switch builds in the top right corner). Leave the window running.
 3. Do a golem pull. When arcdps has written the log, the page shows it by itself.
 
 The first start downloads the bench logs, which takes a few seconds. Click a row in the pull list to

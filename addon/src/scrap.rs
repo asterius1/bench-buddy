@@ -455,30 +455,33 @@ fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value,
     let (x0, w) = (p[0], size[0]);
     let mut y = p[1];
     let mut tip = None;
-    // the structure: boxes as wide as their tokens
+    // the structure in two lines (opener and bomb burst, then the two fillers), boxes as wide as
+    // their tokens
     let st = arr(&s["structure"]);
-    if !st.is_empty() {
-        let us: Vec<f32> = st.iter().map(|c| arr(&c["tokens"]).iter().map(sheet_units).sum::<f32>()).collect();
-        let room = w - GAPX * (st.len() as f32 - 1.0) - 12.0 * st.len() as f32;
+    for line in st.chunks(2) {
+        let us: Vec<f32> = line.iter().map(|c| arr(&c["tokens"]).iter().map(sheet_units).sum::<f32>()).collect();
+        let room = w - GAPX * (line.len() as f32 - 1.0) - 12.0 * line.len() as f32;
         let sz = (room / us.iter().sum::<f32>().max(1.0)).min(34.0).floor();
-        let bh = 18.0 + 12.0 + sz + 8.0;
+        let bh = 18.0 + 10.0 + sz + 8.0;
         let mut x = x0;
-        for (c, u) in st.iter().zip(&us) {
+        for (c, u) in line.iter().zip(&us) {
             let bw = u * sz + 12.0;
             let (a, b) = ([x, y], [x + bw, y + bh]);
             dl.add_rect(a, b, rgb(26, 26, 25)).filled(true).rounding(5.0).build();
             dl.add_rect(a, b, BORDER).rounding(5.0).build();
             txt(dl, F::Small, [a[0] + 6.0, a[1] + 2.0], INK2, c["name"].as_str().unwrap_or(""));
-            sheet_toks(ui, dl, a[0] + 6.0, a[1] + 30.0, sz, &arr(&c["tokens"]), &[], false, icons, y + bh / 2.0, &mut tip);
+            sheet_toks(ui, dl, a[0] + 6.0, a[1] + 28.0, sz, &arr(&c["tokens"]), &[], false, icons, y + bh / 2.0, &mut tip);
             x += bw + GAPX;
         }
-        y += bh + 8.0;
+        y += bh + GAPX;
     }
+    y += 5.0;
     // the rows: just the filler
     let rows = arr(&s["rows"]);
     let n = rows.len().max(1) as f32;
-    let h = ((p[1] + size[1] - y - 18.0 - 3.0 * (n - 1.0)) / n).clamp(40.0, 80.0);
-    let szmax = (h - 26.0).min(40.0);
+    // rows only as tall as their icons, smaller if they would not fit
+    let h = ((p[1] + size[1] - y - 18.0 - 3.0 * (n - 1.0)) / n).clamp(40.0, 58.0);
+    let szmax = (h - 24.0).min(34.0);
     let n0 = rows.iter().map(|r| arr(&r["cells"][0]["tokens"]).len() + arr(&r["cells"][0]["missing"]).len()).max().unwrap_or(1).max(1) as f32;
     let c0 = (n0 * (szmax + 4.0) + 12.0).max(tw(ui, F::Small, "Bomb burst") + 10.0);
     let cw = (w - LBL - c0 - 3.0 * GAPX) / 2.0;
@@ -501,11 +504,16 @@ fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value,
             let b = [a[0] + colw[k], y + h];
             dl.add_rect(a, b, rgb(26, 26, 25)).filled(true).rounding(5.0).build();
             dl.add_rect(a, b, BORDER).rounding(5.0).build();
-            txt(dl, F::Tiny, [a[0] + 6.0, a[1] + 3.0], MUTED, c["label"].as_str().unwrap_or(""));
+            // the start time on the right, clear of the instants drawn above the icons; the bomb
+            // burst always starts the cycle, so it only says "opener"
+            let label = c["label"].as_str().unwrap_or("");
+            if k > 0 || label == "opener" {
+                rtxt(ui, dl, F::Tiny, [b[0] - 6.0, a[1] + 2.0], MUTED, label);
+            }
             let toks = arr(&c["tokens"]);
             let miss = arr(&c["missing"]);
             let total: f32 = toks.iter().map(sheet_units).sum::<f32>() + miss.len() as f32;
-            let top = a[1] + 22.0;
+            let top = a[1] + 18.0;
             let sz = ((colw[k] - 12.0 - 4.0 * miss.len() as f32) / total.max(1.0)).min(szmax).min(b[1] - top - 5.0).max(10.0).floor();
             sheet_toks(ui, dl, a[0] + 6.0, top, sz, &toks, &miss, true, icons, cy, &mut tip);
         }

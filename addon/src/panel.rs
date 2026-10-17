@@ -70,32 +70,33 @@ fn cls(ms: f64) -> C {
 
 #[derive(Clone, Copy)]
 pub enum F {
-    Body,  // 13
-    Small, // 11
-    Tiny,  // 10
-    Micro, // 8, text tiles
-    SemiS, // 11 semibold
-    SemiM, // 12 semibold
-    Bold,  // 15 semibold
-    H3,    // 14 semibold
+    Body,  // 15
+    Small, // 13
+    Tiny,  // 12
+    Micro, // 10, text tiles
+    SemiS, // 13 semibold
+    SemiM, // 14 semibold
+    Bold,  // 17 semibold
+    H3,    // 16 semibold
     Lag,   // 26 semibold
     Big,   // 34 semibold
-    Ttl,   // 12
-    Nano,  // 9
+    Ttl,   // 14
+    Nano,  // 11
 }
+// two pixels over the page's sizes: the page's sizes read too small in game
 const FONTS: [(&str, &str, f32); 12] = [
-    ("BENCH_BUDDY_BODY", "segoeui.ttf", 13.0),
-    ("BENCH_BUDDY_SMALL", "segoeui.ttf", 11.0),
-    ("BENCH_BUDDY_TINY", "segoeui.ttf", 10.0),
-    ("BENCH_BUDDY_MICRO", "segoeui.ttf", 8.5),
-    ("BENCH_BUDDY_SEMIS", "seguisb.ttf", 11.0),
-    ("BENCH_BUDDY_SEMIM", "seguisb.ttf", 12.0),
-    ("BENCH_BUDDY_BOLD", "seguisb.ttf", 15.0),
-    ("BENCH_BUDDY_H3", "seguisb.ttf", 14.0),
+    ("BENCH_BUDDY_BODY", "segoeui.ttf", 15.0),
+    ("BENCH_BUDDY_SMALL", "segoeui.ttf", 13.0),
+    ("BENCH_BUDDY_TINY", "segoeui.ttf", 12.0),
+    ("BENCH_BUDDY_MICRO", "segoeui.ttf", 10.0),
+    ("BENCH_BUDDY_SEMIS", "seguisb.ttf", 13.0),
+    ("BENCH_BUDDY_SEMIM", "seguisb.ttf", 14.0),
+    ("BENCH_BUDDY_BOLD", "seguisb.ttf", 17.0),
+    ("BENCH_BUDDY_H3", "seguisb.ttf", 16.0),
     ("BENCH_BUDDY_LAG", "seguisb.ttf", 26.0),
     ("BENCH_BUDDY_BIG", "seguisb.ttf", 34.0),
-    ("BENCH_BUDDY_TTL", "segoeui.ttf", 12.0),
-    ("BENCH_BUDDY_NANO", "segoeui.ttf", 9.0),
+    ("BENCH_BUDDY_TTL", "segoeui.ttf", 14.0),
+    ("BENCH_BUDDY_NANO", "segoeui.ttf", 11.0),
 ];
 static LOADED: [AtomicUsize; 12] = [const { AtomicUsize::new(0) }; 12];
 /// Latin-1 plus the dashes, the ellipsis and the minus sign the page uses.
@@ -141,13 +142,22 @@ fn with_font<R>(font: F, f: impl FnOnce() -> R) -> R {
     r
 }
 
+/// The game draws the minus sign, the dashes and the ellipsis as "?" (seen in game), so they go
+/// out as plain ASCII.
+fn plain(s: &str) -> std::borrow::Cow<'_, str> {
+    if !s.contains(['\u{2212}', '\u{2013}', '\u{2014}', '\u{2026}']) {
+        return s.into();
+    }
+    s.replace(['\u{2212}', '\u{2013}', '\u{2014}'], "-").replace('\u{2026}', "...").into()
+}
+
 fn tw(ui: &Ui, font: F, s: &str) -> f32 {
-    with_font(font, || ui.calc_text_size(s)[0])
+    with_font(font, || ui.calc_text_size(plain(s).as_ref())[0])
 }
 
 /// Text with its top-left at `p`.
 fn txt(dl: &DrawListMut, font: F, p: [f32; 2], c: C, s: &str) {
-    with_font(font, || dl.add_text(p, c, s));
+    with_font(font, || dl.add_text(p, c, plain(s).as_ref()));
 }
 
 /// Text ending at `p[0]`.
@@ -276,8 +286,8 @@ enum Tip {
 }
 
 const COL_L: f32 = 58.0;
-const COL_N1: f32 = 54.0;
-const COL_N2: f32 = 66.0;
+const COL_N1: f32 = 62.0;
+const COL_N2: f32 = 72.0;
 const GAP: f32 = 6.0;
 
 //// What a click in the panel asks for.
@@ -286,6 +296,8 @@ enum Act {
     /// show this pull (None: follow the newest)
     Pick(Option<String>),
     ToggleList,
+    /// keep the list and the arrows to one build ("" every build)
+    Build(&'static str),
     Scrap(scrap::SAct),
 }
 
@@ -321,8 +333,8 @@ pub fn draw(ui: &Ui, s: &mut State) -> bool {
     let nav = Nav {
         live,
         following: s.selected.is_none(),
-        idx: s.history.iter().position(|h| h.log == shown_log),
-        logs: s.history.iter().map(|h| h.log.clone()).collect(),
+        idx: s.history.iter().filter(|h| s.build.is_empty() || h.kind == s.build).position(|h| h.log == shown_log),
+        logs: s.history.iter().filter(|h| s.build.is_empty() || h.kind == s.build).map(|h| h.log.clone()).collect(),
         status: s.live_line(),
     };
     let mut tip: Option<(Tip, f32)> = None;
@@ -389,6 +401,16 @@ pub fn draw(ui: &Ui, s: &mut State) -> bool {
         match a {
             Act::Fill(m) => s.set_fill(m),
             Act::ToggleList => s.list_open = !s.list_open,
+            Act::Build(k) => {
+                s.build = k;
+                // show that build's newest pull
+                let newest = s.history.iter().rev().find(|h| k.is_empty() || h.kind == k).map(|h| h.log.clone());
+                if let Some(log) = newest.filter(|_| !k.is_empty()) {
+                    let log = Some(log).filter(|l| *l != s.latest);
+                    s.selected = log.clone();
+                    *crate::lock(&crate::WANT) = Some(log);
+                }
+            }
             Act::Scrap(scrap::SAct::Sheet) => s.show_sheet = !s.show_sheet,
             Act::Scrap(scrap::SAct::All) => s.scrap_all = !s.scrap_all,
             Act::Pick(log) => {
@@ -432,14 +454,38 @@ fn draw_list(ui: &Ui, s: &State, shown: &str) -> Option<Act> {
         ui.push_style_var(StyleVar::WindowPadding([6.0, 6.0])),
         ui.push_style_var(StyleVar::WindowBorderSize(1.0)),
     ];
-    let rows = s.history.len().min(16) as f32;
+    let list: Vec<(usize, &crate::Hist)> = s.history.iter().enumerate().filter(|(_, h)| s.build.is_empty() || h.kind == s.build).collect();
+    let rows = list.len().min(16) as f32;
     Window::new("##bench_buddy_pulls")
         .position([at[0], at[1] + at[3] + 4.0], Condition::Always)
-        .size([380.0, rows * 22.0 + 12.0], Condition::Always)
+        .size([400.0, rows * 22.0 + 12.0 + 26.0], Condition::Always)
+        // reopened, the window keeps its old place behind the panel the click just raised: keep it on top
+        .focused(true)
         .flags(WindowFlags::NO_DECORATION | WindowFlags::NO_SAVED_SETTINGS | WindowFlags::NO_NAV)
         .build(ui, || {
             with_font(F::Ttl, || {
-                for (k, h) in s.history.iter().enumerate().rev() {
+                // the build filter
+                let p = ui.cursor_screen_pos();
+                let dl = ui.get_window_draw_list();
+                let mut bx = p[0];
+                for (k, label) in [("", "All builds"), ("berserker", "Condi Berserker"), ("scrapper", "Power Scrapper")] {
+                    let bw = tw(ui, F::Small, label) + 16.0;
+                    let (a, b) = ([bx, p[1]], [bx + bw, p[1] + 18.0]);
+                    let on = s.build == k;
+                    let hov = ui.is_mouse_hovering_rect(a, b);
+                    if hov {
+                        dl.add_rect(a, b, HOVER).filled(true).rounding(9.0).build();
+                        if ui.is_mouse_clicked(MouseButton::Left) {
+                            act = Some(Act::Build(k));
+                        }
+                    }
+                    dl.add_rect(a, b, if on { ACCENT } else { BORDER }).rounding(9.0).build();
+                    txt(&dl, F::Small, [bx + 8.0, p[1] + 1.0], if on { ACCENT } else { INK2 }, label);
+                    bx += bw + 4.0;
+                }
+                drop(dl);
+                ui.dummy([1.0, 22.0]);
+                for &(k, h) in list.iter().rev() {
                     let p = ui.cursor_screen_pos();
                     let w = ui.content_region_avail()[0];
                     let hit = ui.invisible_button(format!("##pull{k}"), [w, 20.0]);
@@ -647,7 +693,7 @@ fn draw_report(
     let swords = r.parts.iter().filter(|x| x.kind == "sword").count() as f32;
     let rows = r.parts.len().max(1) as f32;
     let room = p[1] + size[1] - foot_h - y - 2.0 * (rows - 1.0) - 3.0 * swords;
-    let h = (room / rows).min(52.0).max(24.0);
+    let h = (room / rows).min(56.0).max(24.0);
     for (i, x) in r.parts.iter().enumerate() {
         if x.kind == "sword" {
             y += 3.0;
@@ -697,8 +743,8 @@ fn draw_split(ui: &Ui, dl: &DrawListMut, p: [f32; 2], w: f32, h: f32, i: usize, 
     }
     // label
     let cy = p[1] + h / 2.0;
-    txt(dl, F::Bold, [p[0] + 4.0, cy - 17.0], INK, &x.num);
-    txt(dl, F::Small, [p[0] + 4.0, cy + 1.0], MUTED, x.name);
+    txt(dl, F::Bold, [p[0] + 4.0, cy - 19.0], INK, &x.num);
+    txt(dl, F::Small, [p[0] + 4.0, cy + 2.0], MUTED, x.name);
     if ui.is_mouse_hovering_rect(p, [p[0] + COL_L, b[1]]) {
         tip = Some(Tip::Part(i));
     }
@@ -717,18 +763,18 @@ fn draw_split(ui: &Ui, dl: &DrawListMut, p: [f32; 2], w: f32, h: f32, i: usize, 
     let a = [sx + sw + GAP, p[1]];
     let e = [a[0] + COL_N1, b[1]];
     dl.add_rect(a, e, tempo(Some(x.delta))).filled(true).rounding(4.0).build();
-    rtxt(ui, dl, F::Bold, [e[0] - 4.0, cy - 17.0], INK, &sgn(x.delta));
+    rtxt(ui, dl, F::Bold, [e[0] - 4.0, cy - 19.0], INK, &sgn(x.delta));
     let len = x.len.map_or("unfinished".to_string(), |l| format!("{:.2} s", l / 1000.0));
-    rtxt(ui, dl, F::Tiny, [e[0] - 4.0, cy + 2.0], MUTED, &len);
+    rtxt(ui, dl, F::Tiny, [e[0] - 4.0, cy + 3.0], MUTED, &len);
     if ui.is_mouse_hovering_rect(a, e) {
         tip = Some(Tip::Part(i));
     }
     // behind
     let c = [e[0] + GAP, p[1]];
     let lag_c = if x.delta > 30.0 { BAD } else if x.delta < -30.0 { OK } else { INK };
-    rtxt(ui, dl, F::Bold, [b[0] - 4.0, cy - 17.0], lag_c, &sgn(x.lag_end));
+    rtxt(ui, dl, F::Bold, [b[0] - 4.0, cy - 19.0], lag_c, &sgn(x.lag_end));
     if let Some(be) = x.bench_end {
-        rtxt(ui, dl, F::Tiny, [b[0] - 4.0, cy + 2.0], MUTED, &format!("bench {}", clock(be)));
+        rtxt(ui, dl, F::Tiny, [b[0] - 4.0, cy + 3.0], MUTED, &format!("bench {}", clock(be)));
     }
     if ui.is_mouse_hovering_rect(c, b) {
         tip = Some(Tip::Rot(i));

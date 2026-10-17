@@ -44,14 +44,6 @@ fn sgn(ms: f64) -> String {
     format!("{}{:.2}", if ms > 0.0 { "+" } else if ms < 0.0 { "\u{2212}" } else { "\u{b1}" }, ms.abs() / 1000.0)
 }
 
-fn d_tone(ms: Option<f64>) -> C {
-    match ms {
-        Some(d) if d > 50.0 => BAD,
-        Some(d) if d < -50.0 => OK,
-        _ => MUTED,
-    }
-}
-
 const KIT: [(u32, &str); 18] = [
     (5807, "grenade"), (5809, "grenade"), (5806, "grenade"), (5810, "grenade"),
     (5823, "bomb"), (5822, "bomb"), (5813, "bomb"), (76530, "bomb"),
@@ -158,16 +150,16 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
             let vw = tw(ui, F::SemiM, val).max(tw(ui, F::Small, label));
             hx -= vw;
             txt(dl, F::Small, [hx, y + 2.0], MUTED, label);
-            txt(dl, F::SemiM, [hx, y + 17.0], tone(it[2].as_i64().unwrap_or(0)), val);
+            txt(dl, F::SemiM, [hx, y + 19.0], tone(it[2].as_i64().unwrap_or(0)), val);
             hx -= 14.0;
         }
     }
-    y += 42.0;
+    y += 46.0;
     // buttons: differences / all casts, and the cheat sheet
     let mut bx = x0;
     let button = |label: &str, on: bool, x: f32| -> (bool, f32) {
         let bw = tw(ui, F::Small, label) + 16.0;
-        let (a, b) = ([x, y - 1.0], [x + bw, y + 15.0]);
+        let (a, b) = ([x, y - 1.0], [x + bw, y + 17.0]);
         let hov = ui.is_mouse_hovering_rect(a, b);
         if hov {
             dl.add_rect(a, b, HOVER).filled(true).rounding(9.0).build();
@@ -192,7 +184,7 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
     if c3 {
         acts.push(SAct::Sheet);
     }
-    y += 22.0;
+    y += 25.0;
     if show_sheet {
         return match sheet {
             Some(s) => draw_sheet(ui, dl, [x0, y], [w, p[1] + size[1] - y], s, icons),
@@ -202,30 +194,33 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
             }
         };
     }
-    // columns
-    const LBL: f32 = 46.0;
-    const CYC: f32 = 62.0;
+    // columns: the cycle number, the three whirls, then the cycle's split and the running total
+    // behind, as the Berserker panel's Split and Behind
+    const LBL: f32 = 24.0;
+    const SPL: f32 = 62.0;
+    const BEH: f32 = 66.0;
     const GAPX: f32 = 3.0;
-    let cw = (w - LBL - CYC - 4.0 * GAPX) / 3.0;
+    let cw = (w - LBL - SPL - BEH - 5.0 * GAPX) / 3.0;
+    let sx = x0 + LBL + GAPX + 3.0 * (cw + GAPX);
     for (k, h) in ["Bomb burst", "Nade filler", "Other filler"].iter().enumerate() {
         txt(dl, F::Small, [x0 + LBL + GAPX + k as f32 * (cw + GAPX), y], MUTED, h);
     }
-    rtxt(ui, dl, F::Small, [x0 + w, y], MUTED, "Cycle");
-    y += 16.0;
+    rtxt(ui, dl, F::Small, [sx + SPL, y], MUTED, "Split");
+    rtxt(ui, dl, F::Small, [x0 + w, y], MUTED, "Behind");
+    y += 18.0;
     let rows = v["rows"].as_array().cloned().unwrap_or_default();
     let n = rows.len().max(1) as f32;
     let foot = 20.0;
-    let h = ((p[1] + size[1] - foot - y - 3.0 * (n - 1.0)) / n).clamp(40.0, 112.0);
+    // a row is as tall as its icons need; what is left of the window stays below the legend
+    let h = ((p[1] + size[1] - foot - y - 3.0 * (n - 1.0)) / n).clamp(44.0, 68.0);
     for r in &rows {
         let b = [x0 + w, y + h];
-        // label
         let cy = y + h / 2.0;
-        txt(dl, F::Bold, [x0 + 2.0, cy - 22.0], INK, &r["n"].to_string());
-        txt(dl, F::Tiny, [x0 + 2.0, cy - 3.0], MUTED, r["start"].as_str().unwrap_or(""));
-        let lt = r["late"].as_str().unwrap_or("");
-        if !lt.is_empty() {
-            txt(dl, F::Tiny, [x0 + 2.0, cy + 10.0], tone(r["lateTone"].as_i64().unwrap_or(0)), lt);
+        let hov_row = ui.is_mouse_hovering_rect([x0, y], b);
+        if hov_row {
+            dl.add_rect([x0, y], [x0 + LBL, b[1]], HOVER).filled(true).rounding(4.0).build();
         }
+        txt(dl, F::Bold, [x0 + 3.0, cy - line_h(F::Bold) / 2.0], INK, &r["n"].to_string());
         if ui.is_mouse_hovering_rect([x0, y], [x0 + LBL, b[1]]) {
             tip = Some((STip::Cyc(r["card"].clone()), cy));
         }
@@ -241,25 +236,31 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
                 tip = Some((t, cy));
             }
         }
-        // cycle split
-        let a = [x0 + w - CYC, y];
+        // split: the cycle against the bench's, and its length
+        let a = [sx, y];
+        let e = [sx + SPL, b[1]];
         let d = f(&r["delta"]);
-        dl.add_rect(a, b, tempo(d)).filled(true).rounding(4.0).build();
-        let len = f(&r["len"]).map_or("\u{2026}".to_string(), |l| format!("{:.2}", l / 1000.0));
-        rtxt(ui, dl, F::Bold, [b[0] - 5.0, cy - 24.0], INK, &len);
-        if let Some(d) = d {
-            rtxt(ui, dl, F::Small, [b[0] - 5.0, cy - 5.0], d_tone(Some(d)), &sgn(d));
-        }
-        if let Some(bh) = f(&r["behind"]) {
-            rtxt(ui, dl, F::SemiM, [b[0] - 5.0, cy + 9.0], d_tone(Some(bh)), &sgn(bh));
-        }
+        dl.add_rect(a, e, tempo(d)).filled(true).rounding(4.0).build();
+        let dt = d.map_or("\u{2026}".to_string(), sgn);
+        rtxt(ui, dl, F::Bold, [e[0] - 4.0, cy - 19.0], INK, &dt);
+        let len = f(&r["len"]).map_or("unfinished".to_string(), |l| format!("{:.2} s", l / 1000.0));
+        rtxt(ui, dl, F::Tiny, [e[0] - 4.0, cy + 3.0], MUTED, &len);
+        // behind: the sum of the splits so far, and where the cycle started
+        let bh = f(&r["behind"]);
+        let bc = match bh {
+            Some(x) if x > 30.0 => BAD,
+            Some(x) if x < -30.0 => OK,
+            _ => INK,
+        };
+        rtxt(ui, dl, F::Bold, [b[0] - 4.0, cy - 19.0], bc, &bh.map_or(String::new(), sgn));
+        rtxt(ui, dl, F::Tiny, [b[0] - 4.0, cy + 3.0], MUTED, &format!("at {}", r["start"].as_str().unwrap_or("")));
         if ui.is_mouse_hovering_rect(a, b) {
             tip = Some((STip::Cyc(r["card"].clone()), cy));
         }
         y += h + 3.0;
     }
     // footer legend
-    let fy = (p[1] + size[1] - foot + 4.0).max(y + 4.0);
+    let fy = y + 4.0;
     dl.add_line([x0, fy - 3.0], [x0 + w, fy - 3.0], BORDER).build();
     let mut fx = x0;
     for (c, label) in [(BAD, "missed (dashed) · missed hits (box)"), (WARN, "late"), (ACCENT, "other whirl"), (rgb(208, 71, 58), "Fervor")] {
@@ -294,7 +295,7 @@ fn draw_cell(ui: &Ui, dl: &DrawListMut, a: [f32; 2], b: [f32; 2], c: &Value, all
     let tm = f(&c["time"]).map_or("\u{2026}".to_string(), |t| format!("{:.2}", t / 1000.0));
     rtxt(ui, dl, F::Bold, [rx, ty - 1.0], INK, &tm);
     // icons
-    let top = ty + 21.0;
+    let top = ty + 23.0;
     let room_w = b[0] - a[0] - 12.0;
     let room_h = b[1] - top - 8.0;
     let mut hit = None;
@@ -382,7 +383,7 @@ fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value,
     for (k, h) in ["Bomb burst", "Nade filler", "Other filler"].iter().enumerate() {
         txt(dl, F::Small, [x0 + LBL + GAPX + k as f32 * (cw + GAPX), y], MUTED, h);
     }
-    y += 16.0;
+    y += 18.0;
     let rows = s["rows"].as_array().cloned().unwrap_or_default();
     let n = rows.len().max(1) as f32;
     let h = ((p[1] + size[1] - y - 3.0 * (n - 1.0)) / n).clamp(40.0, 96.0);
@@ -464,7 +465,7 @@ fn draw_sheet(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], s: &Value,
 
 // ---- hover cards ----------------------------------------------------------------------
 
-const TIP_W: f32 = 460.0;
+const TIP_W: f32 = 500.0;
 
 pub fn draw_tip(ui: &Ui, t: STip, y: f32, panel: [f32; 4], icons: &HashMap<u32, String>) {
     let colors = [ui.push_style_color(StyleColor::WindowBg, TIP), ui.push_style_color(StyleColor::Border, BORDER)];
@@ -514,7 +515,7 @@ fn rows_list(ui: &Ui, dl: &DrawListMut, p: [f32; 2], rows: &[Value]) -> f32 {
     for r in rows {
         txt(dl, F::Ttl, [p[0], y], MUTED, r[0].as_str().unwrap_or(""));
         txt(dl, F::Ttl, [p[0] + kw, y], tone(r[2].as_i64().unwrap_or(0)), r[1].as_str().unwrap_or(""));
-        y += 18.0;
+        y += 20.0;
     }
     y - p[1]
 }
@@ -533,47 +534,122 @@ fn cell_card(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value, icons: &HashMap<
     txt(dl, F::H3, [p[0], y], INK, v["title"].as_str().unwrap_or(""));
     y += line_h(F::H3);
     txt(dl, F::Small, [p[0], y], MUTED, v["sub"].as_str().unwrap_or(""));
-    y += 18.0;
+    y += 20.0;
     if let Some(sp) = v["splits"].as_array().filter(|a| !a.is_empty()) {
-        let cols = [p[0], p[0] + 190.0, p[0] + 260.0, p[0] + 330.0];
+        let cols = [p[0], p[0] + 210.0, p[0] + 290.0, p[0] + 370.0];
         for (k, hd) in ["Split", "you", "bench", ""].iter().enumerate() {
             txt(dl, F::Small, [cols[k], y], MUTED, hd);
         }
-        y += 16.0;
+        y += 18.0;
         for r in sp {
             txt(dl, F::Ttl, [cols[0], y], INK, r[0].as_str().unwrap_or(""));
             txt(dl, F::Ttl, [cols[1], y], INK, r[1].as_str().unwrap_or(""));
             txt(dl, F::Ttl, [cols[2], y], MUTED, r[2].as_str().unwrap_or(""));
             txt(dl, F::Ttl, [cols[3], y], tone(r[4].as_i64().unwrap_or(0)), r[3].as_str().unwrap_or(""));
-            y += 17.0;
+            y += 19.0;
         }
         y += 6.0;
     }
     // tiles: the bench above, you below, the difference and the name under them
+    // one row of columns whatever the count: the tiles shrink instead of wrapping
     let tiles = v["tiles"].as_array().cloned().unwrap_or_default();
-    let tw_ = 42.0;
-    let per_row = ((TIP_W - 24.0 - 36.0) / tw_).floor().max(1.0) as usize;
-    for chunk in tiles.chunks(per_row) {
-        txt(dl, F::Tiny, [p[0], y + 8.0], MUTED, "bench");
-        txt(dl, F::Tiny, [p[0], y + 38.0], MUTED, "you");
-        for (k, t) in chunk.iter().enumerate() {
-            let x = p[0] + 36.0 + k as f32 * tw_;
-            if let Some(b) = t["b"].as_u64() {
-                icon(ui, dl, [x, y], 28.0, b as u32, "", icons, true);
-            }
-            if let Some(m) = t["y"].as_u64() {
-                icon(ui, dl, [x, y + 30.0], 28.0, m as u32, t["name"].as_str().unwrap_or(""), icons, false);
-            } else {
-                dashed_rect(dl, [x, y + 30.0], [x + 28.0, y + 58.0], BAD, 1.5);
-            }
-            let lab = t["lab"].as_str().unwrap_or("");
-            txt(dl, F::Nano, [x, y + 60.0], tone(t["tone"].as_i64().unwrap_or(0)), lab);
-            let nm: String = t["name"].as_str().unwrap_or("").chars().take(8).collect();
-            txt(dl, F::Nano, [x, y + 71.0], MUTED, &nm);
+    let room = TIP_W - 24.0 - 40.0;
+    let pitch = (room / tiles.len().max(1) as f32).min(42.0);
+    let s = (pitch - 3.0).min(28.0).floor();
+    txt(dl, F::Tiny, [p[0], y + s / 2.0 - 6.0], MUTED, "Bench");
+    txt(dl, F::Tiny, [p[0], y + s + 2.0 + s / 2.0 - 6.0], MUTED, "You");
+    for (k, t) in tiles.iter().enumerate() {
+        let x = p[0] + 40.0 + k as f32 * pitch;
+        if let Some(b) = t["b"].as_u64() {
+            icon(ui, dl, [x, y], s, b as u32, "", icons, false);
         }
-        y += 86.0;
+        let yy = y + s + 2.0;
+        if let Some(m) = t["y"].as_u64() {
+            icon(ui, dl, [x, yy], s, m as u32, t["name"].as_str().unwrap_or(""), icons, false);
+            if t["kind"] == "extra" {
+                dl.add_rect([x - 1.5, yy - 1.5], [x + s + 1.5, yy + s + 1.5], WARN).rounding(3.0).thickness(1.5).build();
+            } else if t["slow"] == true {
+                dl.add_rect([x - 2.0, yy - 2.0], [x + s + 2.0, yy + s + 2.0], WARN).rounding(3.0).thickness(2.0).build();
+            }
+            if t["few"] == true {
+                dl.add_circle([x + s - 1.0, yy + s - 1.0], 3.5, BAD).filled(true).build();
+            }
+        } else {
+            dashed_rect(dl, [x, yy], [x + s, yy + s], BAD, 1.5);
+        }
+        let lab = t["lab"].as_str().unwrap_or("");
+        let lw = tw(ui, F::Nano, lab);
+        txt(dl, F::Nano, [x + s / 2.0 - lw / 2.0, yy + s + 2.0], tone(t["tone"].as_i64().unwrap_or(0)), lab);
     }
+    y += 2.0 * s + 2.0 + 18.0;
+    y += lanes(ui, dl, [p[0], y], v, &tiles, icons);
     y - p[1]
+}
+
+/// The bench's casts and yours on one time scale, each from its own first cast, as the Berserker
+/// section card: where the time went, not only how much.
+fn lanes(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value, tiles: &[Value], icons: &HashMap<u32, String>) -> f32 {
+    let get = |t: &Value, a: &str, b: &str| Some((t[a].as_f64()?, t[b].as_f64().unwrap_or(0.0)));
+    let bc: Vec<(&Value, f64, f64)> = tiles.iter().filter_map(|t| get(t, "bt", "bd").map(|(s, d)| (t, s, d))).collect();
+    let yc: Vec<(&Value, f64, f64)> = tiles.iter().filter_map(|t| get(t, "yt", "yd").map(|(s, d)| (t, s, d))).collect();
+    if bc.is_empty() && yc.is_empty() {
+        return 0.0;
+    }
+    let b0 = bc.iter().map(|z| z.1).fold(f64::INFINITY, f64::min);
+    let y0 = yc.iter().map(|z| z.1).fold(f64::INFINITY, f64::min);
+    let b_end = f(&v["refLen"]).unwrap_or_else(|| bc.iter().map(|z| z.1 - b0 + z.2).fold(0.0, f64::max));
+    let y_end = f(&v["len"]).unwrap_or_else(|| yc.iter().map(|z| z.1 - y0 + z.2).fold(0.0, f64::max));
+    let span = b_end.max(y_end).max(500.0);
+    let lane_w = TIP_W - 24.0 - 40.0;
+    let px = |ms: f64| (ms / span) as f32 * lane_w;
+    let lane = |ly: f32, name: &str, list: &[(&Value, f64, f64)], t0: f64, mine: bool, end: Option<f64>| {
+        let l0 = p[0] + 40.0;
+        dl.add_rect([l0, ly], [l0 + lane_w, ly + 22.0], rgba(255, 255, 255, 0.03)).filled(true).rounding(3.0).build();
+        txt(dl, F::Tiny, [p[0], ly + 4.0], MUTED, name);
+        for (t, at, dur) in list {
+            let a = [l0 + px(at - t0), ly + 1.0];
+            let b = [a[0] + px(*dur).max(2.0), ly + 21.0];
+            let missed = !mine && t["y"].is_null();
+            let (bg, edge) = if missed {
+                (None, Some(BAD))
+            } else if mine && t["kind"] == "extra" {
+                (None, Some(WARN))
+            } else if mine && t["slow"] == true {
+                (Some(rgb(138, 90, 18)), Some(WARN))
+            } else if mine {
+                (Some(rgb(63, 95, 134)), if t["few"] == true { Some(BAD) } else { None })
+            } else {
+                (Some(rgb(75, 77, 82)), None)
+            };
+            if let Some(bg) = bg {
+                dl.add_rect(a, b, bg).filled(true).rounding(3.0).build();
+            }
+            if let Some(e) = edge {
+                dl.add_rect([a[0] + 0.75, a[1] + 0.75], [b[0] - 0.75, b[1] - 0.75], e).rounding(3.0).thickness(1.5).build();
+            }
+            if b[0] - a[0] > 18.0 {
+                let id = if mine { t["y"].as_u64() } else { t["b"].as_u64() }.unwrap_or(0) as u32;
+                icon(ui, dl, [a[0] + 1.0, a[1] + 1.0], 18.0, id, t["name"].as_str().unwrap_or(""), icons, false);
+            }
+        }
+        if let Some(e) = end {
+            let ex = l0 + px(e);
+            dl.add_rect([ex, ly - 2.0], [ex + 2.0, ly + 24.0], INK2).filled(true).build();
+        }
+    };
+    let y = p[1];
+    lane(y, "Bench", &bc, b0, false, f(&v["refLen"]).map(|_| b_end));
+    lane(y + 24.0, "You", &yc, y0, true, f(&v["len"]).map(|_| y_end));
+    let ty = y + 50.0;
+    let step = if span > 3000.0 { 1000.0 } else { 500.0 };
+    let mut t = 0.0;
+    while t <= span {
+        let label = format!("{:.1}", t / 1000.0);
+        let w = tw(ui, F::Nano, &label);
+        txt(dl, F::Nano, [p[0] + 40.0 + px(t) - w / 2.0, ty], MUTED, &label);
+        t += step;
+    }
+    ty + 14.0 - p[1]
 }
 
 fn cyc_card(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value) -> f32 {
@@ -581,17 +657,17 @@ fn cyc_card(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value) -> f32 {
     txt(dl, F::H3, [p[0], y], INK, v["title"].as_str().unwrap_or(""));
     y += line_h(F::H3);
     txt(dl, F::Small, [p[0], y], MUTED, v["sub"].as_str().unwrap_or(""));
-    y += 18.0;
-    let cols = [p[0], p[0] + 170.0, p[0] + 240.0, p[0] + 330.0];
+    y += 20.0;
+    let cols = [p[0], p[0] + 190.0, p[0] + 270.0, p[0] + 370.0];
     for (k, hd) in ["Cooldown skill", "cast", "after ready", "bench"].iter().enumerate() {
         txt(dl, F::Small, [cols[k], y], MUTED, hd);
     }
-    y += 16.0;
+    y += 18.0;
     for r in v["rows"].as_array().cloned().unwrap_or_default() {
         for k in 0..4 {
             txt(dl, F::Ttl, [cols[k], y], if k == 3 { MUTED } else { INK }, r[k].as_str().unwrap_or(""));
         }
-        y += 17.0;
+        y += 19.0;
     }
     y += 4.0;
     txt(dl, F::Small, [p[0], y], INK2, v["foot"].as_str().unwrap_or(""));

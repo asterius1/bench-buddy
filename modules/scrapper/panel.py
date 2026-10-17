@@ -173,7 +173,12 @@ def _tiles(chips):
             lab, t = "extra", 3
         else:
             lab, t = sgn(c.get("lost")), tone(c.get("lost"))
-        out.append({"b": b, "y": y, "lab": lab, "tone": t, "name": c["name"]})
+        # times for the card's two lanes: the bench's cast and yours, ms from each side's cycle start
+        ref = c.get("ref") or {}
+        bt, bd = (c.get("refT"), c.get("refDur")) if gone else (ref.get("t"), ref.get("dur"))
+        out.append({"b": b, "y": y, "lab": lab, "tone": t, "name": c["name"],
+                    "bt": bt, "bd": bd, "yt": None if gone else c.get("t"), "yd": None if gone else c.get("dur"),
+                    "slow": "slow" in f, "few": "few" in f, "kind": c["kind"]})
     return out
 
 
@@ -202,7 +207,8 @@ def _cell(r, k, x, fervor):
     return {"label": "opener" if m is None else clk(m["start"]), "time": time, "delta": d,
             "border": "err" if any(c["kind"] == "ghost" for c in chips) else "xtra" if any(c["kind"] == "extra" for c in chips) else "",
             "diff": [i for i in icons if _problem(i["f"])], "all": _tokens(chips, fervor),
-            "card": {"title": title, "sub": sub, "splits": splits, "tiles": _tiles(chips)}}
+            "card": {"title": title, "sub": sub, "splits": splits, "tiles": _tiles(chips),
+                     "len": time if m else None, "refLen": m.get("refLen") if m else None}}
 
 
 def _cyc_card(r):

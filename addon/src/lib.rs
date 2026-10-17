@@ -78,6 +78,8 @@ pub struct State {
     pub selected: Option<String>,
     pub latest: String,
     pub list_open: bool,
+    /// the build the pull list and the arrows keep to: "" every build, "berserker" or "scrapper"
+    pub build: &'static str,
     pub lstat: LiveStatus,
     /// what the shown pull is: "berserker" (the Splits report) or "scrapper" (`scrap` below)
     pub kind: String,
@@ -256,6 +258,7 @@ fn load() {
         selected: None,
         latest: String::new(),
         list_open: false,
+        build: "",
         lstat: LiveStatus::default(),
         kind: "berserker".into(),
         scrap: None,

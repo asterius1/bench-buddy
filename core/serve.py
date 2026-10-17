@@ -32,6 +32,7 @@ for d in (HERE, BERS, SCRAP):
     sys.path.insert(0, str(d))
 import baseline  # noqa: E402
 import evtc_rot  # noqa: E402
+import kit  # noqa: E402  (helpers the modules share)
 import local  # noqa: E402  (the Condi Berserker checker at /)
 
 import scrap  # noqa: E402  (the Power Scrapper checker at /scrapper)
@@ -69,7 +70,7 @@ _pulls = {}      # stem -> (size, pull dict)
 _seen = {"files": None, "logs": []}
 STARTED = int(time.time())   # a restart also makes the open page reload
 RESTART = 3          # exit code that run.bat answers by starting the server again
-MODULES = [evtc_rot, baseline, local, scrap, scrap_panel] + SIMPLE   # reloaded in this order
+MODULES = [evtc_rot, kit, baseline, local, scrap, scrap_panel] + SIMPLE   # reloaded in this order
 
 
 def watched():

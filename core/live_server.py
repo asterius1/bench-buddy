@@ -32,9 +32,10 @@ for d in (HERE, ROOT / "modules" / "berserker"):
     sys.path.insert(0, str(d))
 import baseline  # noqa: E402
 import evtc_rot  # noqa: E402
+import kit  # noqa: E402
 import local  # noqa: E402
 
-MODULES = [evtc_rot, baseline, local]   # reloaded in this order
+MODULES = [evtc_rot, kit, baseline, local]   # reloaded in this order
 IDLE_EXIT_S = 15 * 60
 CACHE = HERE / "cache"
 SWAP_MS = 116

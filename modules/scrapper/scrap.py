@@ -18,11 +18,10 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-for d in (HERE.parent.parent / "core", HERE.parent / "berserker"):
-    sys.path.insert(0, str(d))
+sys.path.insert(0, str(HERE.parent.parent / "core"))
 import evtc_rot  # noqa: E402
+import kit  # noqa: E402
 import web  # noqa: E402
-import local  # noqa: E402  (the section matching is shared with the Berserker checker)
 from evtc_rot import evtc  # noqa: E402
 
 BENCH = HERE / "cache" / "bench.json"
@@ -235,26 +234,10 @@ def read_bench():
     if _bench is None:
         log = web.bench_log(PERMALINK, BENCH)
         pl, sm = log["players"][0], log["skillMap"]
-        casts = []
-        for r in pl["rotation"]:
-            for s in r["skills"]:
-                if s["duration"] <= 0:
-                    continue
-                # EI marks a cast cancelled before it did anything with timeGained = -duration
-                cancelled = s.get("timeGained", 0) < 0 and -s["timeGained"] >= s["duration"]
-                casts.append({"id": r["id"], "name": sm.get(f"s{r['id']}", {}).get("name", str(r["id"])),
-                              "t": s["castTime"], "dur": s["duration"], "hits": None,
-                              "cut": s["duration"] < CUT_MS or cancelled, "stop": "cancel" if cancelled else ""})
-        casts.sort(key=lambda c: c["t"])
+        casts = kit.bench_casts(log, CUT_MS)
         casts = _bench_precasts(pl, casts) + casts
         end = log["durationMS"]
-        buffs = {}
-        for b in pl["buffUptimes"]:
-            if b["id"] in (ALACRITY, SUPERSPEED, SWIFTNESS, STABILITY, FERVOR):
-                st = b["states"] + [[end, 0]]
-                buffs[b["id"]] = [(max(t1, casts[0]["t"]), t2) for (t1, n), (t2, _) in zip(st, st[1:]) if n > 0]
-        for k in (ALACRITY, SUPERSPEED, SWIFTNESS, STABILITY, FERVOR):
-            buffs.setdefault(k, [])
+        buffs = kit.bench_buffs(log, (ALACRITY, SUPERSPEED, SWIFTNESS, STABILITY, FERVOR), start=casts[0]["t"])
         _bench = {"log": PERMALINK, "player": pl["name"], "casts": casts, "t0": 0, "end": end,
                   "buffs": buffs, "damage": pl["dpsTargets"][0][0]["damage"],
                   "icons": {k[1:]: v["icon"] for k, v in sm.items() if v.get("icon")}}
@@ -496,7 +479,7 @@ def compare(path):
         row = {"n": k, "refN": refs.index(rc) if rc else None, "start": cy["start"] - t0, "len": cy["len"],
                "refLen": rc["len"] if rc else None, "minis": []}
         if cy["pre"] or (rc and rc["pre"] and k == 0):
-            items = local._match(cy["pre"], rc["pre"] if rc and k == 0 else [], ordered=True)
+            items = kit.match(cy["pre"], rc["pre"] if rc and k == 0 else [], ordered=True)
             row["pre"] = {"chips": [_chip(it, t0, rt0) for it in items],
                           "ref": [{"id": c["id"], "name": c["name"], "dur": c["dur"], "t": c["t"] - rt0}
                                   for c in (rc["pre"] if rc and k == 0 else []) if not c["cut"]]}
@@ -512,7 +495,7 @@ def compare(path):
                     continue
                 cs = m["sections"].get(n, [])
                 rcs = (rm or {}).get("sections", {}).get(n, [])
-                items = local._match(cs, rcs, ordered=(n == "core"))
+                items = kit.match(cs, rcs, ordered=(n == "core"))
                 secs[n] = {"chips": [_chip(it, t0, rt0) for it in items], "time": m["times"].get(n),
                            "refTime": (rm or {}).get("times", {}).get(n),
                            "ref": [{"id": c["id"], "name": c["name"], "dur": c["dur"], "t": c["t"] - rt0} for c in rcs if not c["cut"]]}
@@ -702,21 +685,16 @@ def bench_sheet():
             "secs": round((b["end"] - t0) / 1000, 1), "full": len(full)}
 
 
-def summary(p):
-    CACHE.mkdir(parents=True, exist_ok=True)
-    f = CACHE / f"{p.stem}.json"
-    if f.exists():
-        d = json.loads(f.read_text(encoding="utf-8"))
-        if d.get("v") == VERSION and d.get("size") == p.stat().st_size:
-            return d
+def _summary(p):
     x = compare(p)
     if x is None or not x["rows"]:
         return None
-    d = {"v": VERSION, "size": p.stat().st_size, "log": x["log"], "secs": x["secs"], "dps": x["dps"],
-         "cycles": len(x["rows"]), "lag": x["lag"][-1] if x["lag"] else None,
-         "superspeed": x["buffs"]["superspeed"]}
-    f.write_text(json.dumps(d), encoding="utf-8")
-    return d
+    return {"log": x["log"], "secs": x["secs"], "dps": x["dps"], "cycles": len(x["rows"]),
+            "lag": x["lag"][-1] if x["lag"] else None, "superspeed": x["buffs"]["superspeed"]}
+
+
+def summary(p):
+    return kit.summary(p, CACHE, VERSION, _summary)
 
 
 def history():
@@ -724,20 +702,9 @@ def history():
 
 
 def icons():
-    if ICONS.exists():
-        return json.loads(ICONS.read_text(encoding="utf-8"))
-    out = dict(read_bench()["icons"])
-    missing = [i for i in (ENDO, DODGE, 31248, 6164, 6162, 6166) if str(i) not in out]
-    try:
-        for s in web.skills(missing):
-                out[str(s["id"])] = s.get("icon", "")
-    except OSError:
-        pass
-    if "6166" in out:
-        out["-37"] = out["6166"]   # EI's merged "Detonate (Throw Mine / Mine Field)"
-    ICONS.parent.mkdir(parents=True, exist_ok=True)
-    ICONS.write_text(json.dumps(out), encoding="utf-8")
-    return out
+    # -37: EI's merged "Detonate (Throw Mine / Mine Field)"
+    return kit.icons(ICONS, web.bench_log(PERMALINK, BENCH)["skillMap"],
+                     fill=(ENDO, DODGE, 31248, 6164, 6162, 6166), alias={-37: 6166})
 
 
 if __name__ == "__main__":

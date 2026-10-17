@@ -8,34 +8,11 @@ The judging mirrors `grid.html` (pairing of moved fillers, the 20 s skill mark b
 drift, differences only): change both together. Texts are final; the addon only lays them out.
 """
 import scrap
+from kit import clk, sec, sgn, tone
 
 LATE_OK = 400
 WHIRL = ["bomb burst", "nade filler", "other filler"]
 HAMMER = scrap.HAMMER
-
-
-def sgn(ms):
-    if ms is None:
-        return ""
-    return ("+" if ms > 0 else "−" if ms < 0 else "±") + f"{abs(ms) / 1000:.2f}"
-
-
-def sec(ms):
-    return "—" if ms is None else f"{ms / 1000:.2f} s"
-
-
-def clk(ms):
-    if ms is None:
-        return "—"
-    neg, s = ms < 0, abs(ms) / 1000
-    return ("−" if neg else "") + f"{int(s // 60)}:{s % 60:04.1f}"
-
-
-def tone(ms):
-    """0 neutral, 1 ahead (green), 2 behind (red), as the page's cls()."""
-    if ms is None:
-        return 0
-    return 2 if ms > 50 else 1 if ms < -50 else 0
 
 
 def _chips(mini):

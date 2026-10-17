@@ -12,14 +12,15 @@ What the checker asks of a module (the "simple contract", see AGENTS.md):
 This first version lines up your casts with the bench's in order (like a diff of two lists) and
 gives each matched cast its start time against the bench's. Everything else (loops, cooldowns,
 hits per cast, buffs) is yours to add; modules/berserker and modules/scrapper show how far it goes.
+core/kit.py has the pieces they share (reading the bench, lining up casts, cached history, icons).
 """
-import difflib
 import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent.parent / "core"))
 import evtc_rot  # noqa: E402  (core/evtc_rot.py: one player's casts, hits, swaps and buffs from a raw log)
+import kit  # noqa: E402  (core/kit.py: helpers the modules share)
 import web  # noqa: E402  (core/web.py: downloads from dps.report and the GW2 API)
 
 # ---- the four settings to fill in ------------------------------------------------------------
@@ -47,10 +48,7 @@ def bench():
     if _bench is None:
         log = web.bench_log(PERMALINK, BENCH)
         pl, names = log["players"][0], log["skillMap"]
-        casts = [{"id": r["id"], "name": names.get(f"s{r['id']}", {}).get("name", str(r["id"])),
-                  "t": s["castTime"], "dur": s["duration"]}
-                 for r in pl["rotation"] for s in r["skills"] if s["duration"] >= CUT_MS]
-        casts.sort(key=lambda c: c["t"])
+        casts = [c for c in kit.bench_casts(log, CUT_MS) if not c["cut"]]
         t0 = casts[0]["t"]
         for c in casts:
             c["t"] -= t0
@@ -62,7 +60,7 @@ def bench():
 def mine(path):
     """Your casts from the raw log, ms from your first cast."""
     r = evtc_rot.read(path)
-    casts = [{"id": c["id"], "name": c["name"], "t": c["t"], "dur": c["dur"] or 0, "hits": c["all"]}
+    casts = [{"id": c["id"], "name": c["name"], "t": c["t"], "dur": c["dur"] or 0, "hits": c["all"], "cut": False}
              for c in r["casts"] if (c["dur"] or 0) >= CUT_MS]
     t0 = casts[0]["t"] if casts else 0
     for c in casts:
@@ -80,14 +78,13 @@ def compare(path):
     end = yours[-1]["t"] + 2000 if yours else 0
     ref = [c for c in b["casts"] if c["t"] <= end]   # the bench runs longer than a short pull
     rows = []
-    sm = difflib.SequenceMatcher(None, [c["id"] for c in ref], [c["id"] for c in yours], autojunk=False)
-    for op, i1, i2, j1, j2 in sm.get_opcodes():
-        if op == "equal":
-            for bc, yc in zip(ref[i1:i2], yours[j1:j2]):
-                rows.append({"kind": "same", "bench": bc, "you": yc, "behind": yc["t"] - bc["t"]})
+    for it in kit.match(yours, ref, ordered=True):
+        if "ghost" in it:
+            rows.append({"kind": "missed", "bench": it["ghost"]})
+        elif it["r"] is None:
+            rows.append({"kind": "extra", "you": it["c"]})
         else:
-            rows += [{"kind": "missed", "bench": bc} for bc in ref[i1:i2]]
-            rows += [{"kind": "extra", "you": yc} for yc in yours[j1:j2]]
+            rows.append({"kind": "same", "bench": it["r"], "you": it["c"], "behind": it["c"]["t"] - it["r"]["t"]})
     rows = rows[:max(i for i, x in enumerate(rows) if "you" in x) + 1] if yours else []
     matched = [x for x in rows if x["kind"] == "same"]
     return {"log": Path(path).stem, "name": NAME, "player": r["player"], "bench": PERMALINK,

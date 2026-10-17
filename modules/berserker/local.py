@@ -6,12 +6,11 @@
     damage(path)  the opening seconds: damage and condition stacks against the reference
     icons()      skill icons, from the reference log and the GW2 API, cached in cache/icons.json
 """
-import difflib
-import json
 from pathlib import Path
 
 import baseline
 import evtc_rot
+import kit
 import web
 from evtc_rot import evtc
 
@@ -87,23 +86,19 @@ def pull(path):
             "sword": baseline.stats(sw), "bow": baseline.stats(bw), "player": r["player"]}
 
 
-def summary(p):
-    """One history row, cached per log."""
-    CACHE.mkdir(parents=True, exist_ok=True)
-    f = CACHE / f"{p.stem}.json"
-    if f.exists():
-        d = json.loads(f.read_text(encoding="utf-8"))
-        if d.get("v") == VERSION and d.get("size") == p.stat().st_size:
-            return d
+def _summary(p):
     x = pull(p)
     if x is None:
         return None
-    d = {"v": VERSION, "size": p.stat().st_size, "log": x["log"], "secs": x["secs"],
-         "loops": sum(1 for v in x["visits"] if v["weapon"] == "sword"), "judged": x["judged"],
-         "failed": x["failed"], "berserk": x["berserk"], "sword": x["sword"], "bow": x["bow"],
-         "lag3": x["lag"][5] if len(x["lag"]) > 5 else None}
-    f.write_text(json.dumps(d), encoding="utf-8")
-    return d
+    return {"log": x["log"], "secs": x["secs"],
+            "loops": sum(1 for v in x["visits"] if v["weapon"] == "sword"), "judged": x["judged"],
+            "failed": x["failed"], "berserk": x["berserk"], "sword": x["sword"], "bow": x["bow"],
+            "lag3": x["lag"][5] if len(x["lag"]) > 5 else None}
+
+
+def summary(p):
+    """One history row, cached per log."""
+    return kit.summary(p, CACHE, VERSION, _summary)
 
 
 def history():
@@ -111,20 +106,8 @@ def history():
 
 
 def icons():
-    if ICONS.exists():
-        return json.loads(ICONS.read_text(encoding="utf-8"))
-    log = ref_log()
-    out = {k[1:]: v["icon"] for k, v in log["skillMap"].items() if v.get("icon")}
-    out.pop(str(baseline.STOW), None)  # the stow icon on the render server is broken
-    missing = [i for i in (14505, 14522, 14363, 14364, 14365) if str(i) not in out]
-    if missing:
-        try:
-            for s in web.skills(missing):
-                    out[str(s["id"])] = s.get("icon", "")
-        except OSError:
-            pass
-    ICONS.write_text(json.dumps(out), encoding="utf-8")
-    return out
+    # the stow icon on the render server is broken
+    return kit.icons(ICONS, ref_log()["skillMap"], fill=(14505, 14522, 14363, 14364, 14365), drop=(baseline.STOW,))
 
 
 # ---- section by section comparison ---------------------------------------------------------
@@ -248,38 +231,6 @@ def _ref_for(k, refs):
     return refs[k] if k < len(refs) else None
 
 
-def _match(mine, ref, ordered):
-    """Line up my casts with the reference's (cut casts left out of the matching). Returns display
-    items in order: {"c": mine, "r": its reference cast or None}, {"ghost": a missing ref cast}."""
-    m = [c for c in mine if not c["cut"]]
-    r = [c for c in ref if not c["cut"]]
-    out = []
-    if ordered:
-        sm = difflib.SequenceMatcher(None, [c["id"] for c in r], [c["id"] for c in m], autojunk=False)
-        for op, i1, i2, j1, j2 in sm.get_opcodes():
-            if op == "equal":
-                out += [{"c": m[j1 + x], "r": r[i1 + x]} for x in range(i2 - i1)]
-            else:
-                out += [{"ghost": x} for x in r[i1:i2]] + [{"c": x, "r": None} for x in m[j1:j2]]
-    else:
-        pool = list(r)
-        for c in m:
-            hit = next((x for x in pool if x["id"] == c["id"]), None)
-            if hit:
-                pool.remove(hit)
-            out.append({"c": c, "r": hit})
-        out += [{"ghost": x} for x in pool]
-    cuts = [c for c in mine if c["cut"]]
-    res = []
-    for it in out:
-        if "c" in it:
-            while cuts and cuts[0]["t"] < it["c"]["t"]:
-                res.append({"c": cuts.pop(0), "r": None})
-        res.append(it)
-    res += [{"c": c, "r": None} for c in cuts]
-    return res
-
-
 def _chip(it, rf, buffs, t0):
     if "ghost" in it:
         g = it["ghost"]
@@ -378,7 +329,7 @@ def compare(path):
             secs = {}
             for name, cs in mv["sections"].items():
                 rcs = (rv or {}).get("sections", {}).get(name, [])
-                items = _match(cs, rcs, ordered=(name != "fill"))
+                items = kit.match(cs, rcs, ordered=(name != "fill"))
                 secs[name] = {"chips": [_chip(it, rf, r["buffs"], t0) for it in items],
                               "time": mv["times"].get(name), "refTime": (rv or {}).get("times", {}).get(name),
                               "ref": _refchips(rcs)}

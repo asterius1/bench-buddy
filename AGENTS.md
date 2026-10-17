@@ -13,6 +13,10 @@ programmers: explain what you changed in plain words, and show them the page.
   Each cast is `{"id", "name", "t", "exp", "base", "dur", "stop", "hits", "during", "all", "missed", "dmg"}`,
   times in ms from the log's first event. `golem_logs(elite, needs)` lists the Standard Kitty Golem
   logs of one build, oldest first. `GOLEM` is the folder.
+- **`core/kit.py`** helpers the modules share, to take or leave: the bench's casts and buffs from
+  its EI JSON, `match()` (your casts lined up with the bench's: matched, missed, extra), the cached
+  history row, icons, and the number formats (`sgn`, `sec`, `clk`, `tone`). A helper belongs here
+  once two builds need it; a change must keep every module's output the same on every log.
 - **`core/web.py`** downloads: `bench_log(permalink, dest)` (a dps.report log's Elite Insights JSON,
   cached) and `skills(ids)` (GW2 API). dps.report answers 403 without a User-Agent; always go through it.
 - **`core/serve.py`** is the local server on 127.0.0.1:8771 (`run.bat`, or `python core/serve.py

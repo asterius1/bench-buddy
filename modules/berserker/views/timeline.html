@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golem Pull Timeline</title>
+<style>
+:root{
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+  --border:rgba(255,255,255,.10); --accent:#5ea2f0; --bad:#ff6b61; --warn:#f0a53a; --ok:#4ac26b;
+  --panel:rgba(16,16,15,.84); --game:#2b2c2f; --game2:#34363a;
+  --bar:#5d5b55; --bench:rgba(195,194,183,.32); --grid:rgba(255,255,255,.05); --div:rgba(255,255,255,.28);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font:12px/1.3 system-ui,sans-serif}
+/* fake game screen, 1920x1080 */
+#screen{position:relative;width:1920px;height:1080px;background:var(--game);overflow:hidden}
+#screen .ground{position:absolute;left:0;right:0;bottom:0;height:380px;background:var(--game2)}
+#screen .char{position:absolute;left:900px;top:520px;width:70px;height:170px;border-radius:30px 30px 8px 8px;background:#45474c}
+#screen .golem{position:absolute;left:1180px;top:430px;width:170px;height:260px;border-radius:40px;background:#3d3f44}
+#screen .bar{position:absolute;left:660px;bottom:24px;width:600px;height:56px;border-radius:6px;background:#202124}
+
+#panel{position:absolute;left:24px;top:40px;width:640px;height:1000px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:12px 12px 10px;overflow:hidden}
+.hdr{display:flex;align-items:baseline;gap:10px}
+.hdr h1{margin:0;font-size:15px;font-weight:600}
+.hdr .tot{margin-left:auto;font-size:15px;font-weight:600}
+.hdr .tot small{font-size:12px;color:var(--muted);font-weight:400}
+.stats{display:flex;gap:6px;margin:8px 0 10px}
+.stat{flex:1;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px}
+.stat b{display:block;font-size:17px;font-weight:600}
+.stat span{color:var(--muted);font-size:11px}
+.c-bad{color:var(--bad)} .c-warn{color:var(--warn)} .c-ok{color:var(--ok)} .c-acc{color:var(--accent)}
+
+.lab{color:var(--muted);font-size:11px;display:flex;justify-content:space-between}
+#lag{display:block;margin:2px 0 6px;cursor:crosshair}
+#lag text{fill:var(--muted);font:10px system-ui,sans-serif}
+
+#axis{position:relative;height:14px;margin-left:44px;width:532px;color:var(--muted);font-size:10px}
+#axis span{position:absolute;transform:translateX(-50%)}
+#lanes{position:relative}
+.loop{display:flex;border-top:1px solid var(--border);padding:2px 0}
+.loop .num{width:44px;flex:none;padding-left:2px}
+.loop .num div{height:38px;display:flex;align-items:center;gap:4px;white-space:nowrap}
+.loop .num b{font-size:14px;font-weight:600}
+.loop .num i{font-style:normal;color:var(--muted);font-size:10px}
+.lanecol{flex:none;width:532px}
+.lane{position:relative;height:38px;cursor:crosshair}
+.lane .grid{position:absolute;top:0;bottom:0;width:1px;background:var(--grid)}
+.sec{position:absolute;top:0;height:36px}
+.sec:hover{background:rgba(255,255,255,.05)}
+.sec .dv{position:absolute;left:0;top:0;bottom:0;width:1px;background:var(--div)}
+.wp{position:absolute;left:-2px;top:2px;font-size:9px;color:var(--muted)}
+.cast{position:absolute;top:5px;height:21px;border-radius:2px;background:var(--bar);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.cast img{width:16px;height:16px;border-radius:2px;display:block}
+.cast em{font-style:normal;font-size:9px;color:var(--ink2)}
+.cast.slow{background:var(--warn)}
+.cast.few{background:var(--bad)}
+.cast.extra{background:transparent;box-shadow:inset 0 0 0 2px var(--accent)}
+.cast.extra.slow{background:rgba(240,165,58,.55)}
+.cast:hover,.bc:hover{outline:1px solid var(--ink);z-index:3}
+.bc{position:absolute;top:29px;height:5px;border-radius:1px;background:var(--bench)}
+.bc.miss{background:var(--bad);top:28px;height:7px}
+.end{position:absolute;top:3px;height:33px;width:2px;background:var(--ink2)}
+.bend{position:absolute;top:27px;height:9px;width:2px;background:var(--muted)}
+.cur{position:absolute;top:0;bottom:0;width:1px;background:var(--accent);pointer-events:none;display:none;z-index:4}
+.dt{flex:none;width:40px;text-align:right;font-size:12px;font-weight:600}
+.dt div{height:38px;padding-top:9px}
+.lane.hl{background:rgba(94,162,240,.08)}
+
+.legend{position:absolute;left:12px;right:12px;bottom:8px;display:flex;gap:12px;color:var(--muted);font-size:11px;align-items:center}
+.legend i{display:inline-block;width:14px;height:9px;border-radius:2px;vertical-align:-1px;margin-right:4px}
+
+#tip{position:fixed;z-index:10;pointer-events:none;display:none;max-width:260px;background:var(--surface);
+  border:1px solid var(--border);border-radius:6px;padding:7px 9px;color:var(--ink2);font-size:12px;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+#tip .t{display:flex;align-items:center;gap:6px;color:var(--ink);font-weight:600;font-size:13px;margin-bottom:3px}
+#tip .t img{width:20px;height:20px;border-radius:3px}
+#tip .tag{font-size:11px;font-weight:600;margin-left:auto}
+#tip .lagl{margin-top:4px;padding-top:4px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<div id="screen">
+  <div class="ground"></div><div class="golem"></div><div class="char"></div><div class="bar"></div>
+  <div id="panel">
+    <div class="hdr"><h1>Golem pull</h1><span id="logname" class="lab" style="display:inline"></span><div class="tot" id="tot"></div></div>
+    <div class="stats" id="stats"></div>
+    <div class="lab"><span>Behind bench</span><span id="lagnow"></span></div>
+    <svg id="lag" width="616" height="78"></svg>
+    <div id="axis"></div>
+    <div id="lanes"></div>
+    <div class="legend">
+      <span><i style="background:var(--bar)"></i>cast</span>
+      <span><i style="background:var(--warn)"></i>slow</span>
+      <span><i style="background:var(--bad)"></i>few hits</span>
+      <span><i style="box-shadow:inset 0 0 0 2px var(--accent)"></i>extra</span>
+      <span><i style="background:var(--bench);height:5px"></i>bench</span>
+      <span><i style="background:var(--bad);height:6px"></i>missed</span>
+    </div>
+  </div>
+</div>
+<div id="tip"></div>
+<script src="data.js"></script>
+<script>
+(function(){
+const P = window.PULL, ICONS = window.ICONS || {};
+const TXT = {23285:'stow', 23275:'dodge'};
+const SECN = {a:'Sword start', b:'Flurry part', open:'Longbow open', fill:'Fillers', close:'Close'};
+const OPN = {open:'Opener'};
+const W = 532, endMs = P.secs * 1000;
+const s1 = ms => (ms/1000).toFixed(2);
+const sgn = ms => (ms > 0 ? '+' : ms < 0 ? '−' : '±') + Math.abs(ms/1000).toFixed(2);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+// ---- parts in order, with bench start times (aligned at each visit start)
+const parts = [];
+for (const r of P.rows) for (const key of ['opener','sword','bow']) if (r[key]) {
+  const p = r[key];
+  const chips = Object.values(p.sections).flatMap(s => s.chips);
+  parts.push({n:r.n, refN:r.refN, key, p, chips, len: p.len != null ? p.len : endMs - p.start});
+}
+// bench start of each visit: chained bench visit lengths, from the bench's first cast
+const benchStart = {};
+let cum = Math.min(...parts[0].chips.map(c => c.ref ? c.ref.t : c.refT).filter(v => v != null));
+for (const pt of parts) {
+  pt.vStart = cum;                                   // where the bench would be at this visit
+  if (pt.n === pt.refN) benchStart[pt.refN + pt.key] = cum;
+  pt.bStart = benchStart[pt.refN + pt.key] != null ? benchStart[pt.refN + pt.key] : cum;
+  cum += pt.p.refLen;
+}
+const benchTotal = cum - parts[0].vStart;
+
+// ---- lag series (your time -> how far behind the bench)
+const lagPts = [];
+for (const pt of parts) {
+  const m = pt.chips.filter(c => c.ref && c.t != null && c.kind !== 'cut');
+  // keep only casts matched in bench order (longest increasing run of bench times),
+  // so a reordered skill does not make the line spike
+  const L = m.map(() => 1), prev = m.map(() => -1);
+  for (let i = 0; i < m.length; i++) for (let j = 0; j < i; j++)
+    if (m[j].ref.t < m[i].ref.t && L[j] + 1 > L[i]) { L[i] = L[j] + 1; prev[i] = j; }
+  let k = L.indexOf(Math.max(...L, 0));
+  const keep = new Set();
+  while (k >= 0) { keep.add(m[k]); k = prev[k]; }
+  for (const c of m) {
+    c._lag = c.t - (pt.vStart + c.ref.t - pt.bStart);
+    if (keep.has(c)) lagPts.push([c.t, c._lag]);
+  }
+}
+lagPts.sort((a,b) => a[0]-b[0]);
+function lagAt(t){
+  if (!lagPts.length) return 0;
+  if (t <= lagPts[0][0]) return lagPts[0][1];
+  for (let i = 1; i < lagPts.length; i++) if (lagPts[i][0] >= t) {
+    const [t0,l0] = lagPts[i-1], [t1,l1] = lagPts[i];
+    return l0 + (l1-l0) * (t-t0) / ((t1-t0) || 1);
+  }
+  return lagPts[lagPts.length-1][1];
+}
+function partAt(t){ let f = parts[0]; for (const pt of parts) if (pt.p.start <= t) f = pt; return f; }
+
+// ---- scale
+let maxLocal = 0;
+for (const pt of parts) {
+  maxLocal = Math.max(maxLocal, pt.len, pt.p.refLen);
+  for (const c of pt.chips) {
+    if (c.t != null) maxLocal = Math.max(maxLocal, c.t - pt.p.start + (c.dur||0));
+    const bt = c.ref ? c.ref.t : c.refT;
+    if (bt != null) maxLocal = Math.max(maxLocal, bt - pt.bStart + (c.ref ? c.ref.dur : c.refDur));
+  }
+}
+maxLocal = Math.ceil(maxLocal / 500) * 500;
+const X = ms => ms / maxLocal * W;
+
+// ---- status of a cast
+function status(c){
+  const f = c.flags || [];
+  if (c.kind === 'ghost') return 'miss';
+  if (f.includes('few') || f.includes('nobuff')) return 'few';
+  if (f.includes('slow')) return 'slow';
+  return c.kind === 'extra' ? 'extra' : 'ok';
+}
+const visible = c => c.kind !== 'cut';
+
+// ---- header
+document.getElementById('logname').textContent = P.log.slice(9,11) + ':' + P.log.slice(11,13);
+const all = parts.flatMap(pt => pt.chips).filter(visible);
+const finalLag = lagPts.length ? lagPts[lagPts.length-1][1] : 0;
+const n = k => all.filter(c => (c.flags||[]).includes(k)).length;
+document.getElementById('tot').innerHTML = s1(endMs).replace(/0$/,'') + ' s <small>' + (P.rows.length - 1) + ' loops</small>';
+const stats = [
+  [sgn(finalLag) + ' s', 'behind bench', finalLag > 1000 ? 'c-bad' : finalLag > 300 ? 'c-warn' : 'c-ok'],
+  [n('slow'), 'slow casts', 'c-warn'],
+  [all.filter(c => c.kind === 'ghost').length, 'missed', 'c-bad'],
+  [n('few') + n('nobuff'), 'few hits', 'c-bad'],
+  [all.filter(c => c.kind === 'extra').length, 'extra', 'c-acc'],
+];
+document.getElementById('stats').innerHTML = stats.map(([v,l,c]) => `<div class="stat"><b class="${c}">${v}</b><span>${l}</span></div>`).join('');
+
+// ---- lag chart
+const svg = document.getElementById('lag');
+const LW = 616, LH = 78, padL = 26, padB = 14, padT = 4;
+const maxLag = Math.max(1000, Math.ceil(Math.max(...lagPts.map(p => p[1])) / 500) * 500);
+const minLag = Math.min(0, Math.floor(Math.min(...lagPts.map(p => p[1])) / 500) * 500);
+const lx = t => padL + t / endMs * (LW - padL - 4);
+const ly = l => padT + (maxLag - l) / (maxLag - minLag) * (LH - padT - padB);
+let g = '';
+for (let v = minLag; v <= maxLag; v += 500) {
+  g += `<line x1="${padL}" x2="${LW-4}" y1="${ly(v)}" y2="${ly(v)}" stroke="${v===0?'rgba(255,255,255,.25)':'rgba(255,255,255,.07)'}"/>`;
+  if (v % 1000 === 0) g += `<text x="${padL-4}" y="${ly(v)+3}" text-anchor="end">${v/1000}s</text>`;
+}
+for (const pt of parts) if (pt.key !== 'bow') {
+  const x = lx(pt.p.start);
+  g += `<line x1="${x}" x2="${x}" y1="${padT}" y2="${LH-padB}" stroke="rgba(255,255,255,.07)"/>`;
+  g += `<text x="${x+3}" y="${LH-3}">${pt.key === 'opener' ? 'O' : pt.n}</text>`;
+}
+const path = lagPts.map((p,i) => (i?'L':'M') + lx(p[0]).toFixed(1) + ' ' + ly(p[1]).toFixed(1)).join('');
+const area = path + `L${lx(lagPts[lagPts.length-1][0]).toFixed(1)} ${ly(0)}L${lx(lagPts[0][0]).toFixed(1)} ${ly(0)}Z`;
+g += `<path d="${area}" fill="rgba(255,107,97,.14)"/>`;
+g += `<path d="${path}" fill="none" stroke="var(--bad)" stroke-width="1.5"/>`;
+g += `<line id="lagcur" y1="${padT}" y2="${LH-padB}" stroke="var(--accent)" visibility="hidden"/>`;
+g += `<circle id="lagdot" r="3" fill="var(--accent)" visibility="hidden"/>`;
+svg.innerHTML = g;
+document.getElementById('lagnow').textContent = 'end ' + sgn(finalLag) + ' s';
+
+// ---- time axis
+const ax = document.getElementById('axis');
+for (let s = 0; s <= maxLocal; s += 1000) ax.innerHTML += `<span style="left:${X(s)}px">${s/1000}${s===0?'':''}</span>`;
+ax.innerHTML += `<span style="left:${W+22}px;transform:none;color:var(--muted)">s</span>`;
+
+// ---- lanes
+const lanesEl = document.getElementById('lanes');
+const loops = [];
+for (const pt of parts) {
+  const id = pt.key === 'opener' ? 'O' : pt.n;
+  let L = loops.find(l => l.id === id);
+  if (!L) loops.push(L = {id, parts: []});
+  L.parts.push(pt);
+}
+const laneOf = [];
+for (const L of loops) {
+  const row = document.createElement('div'); row.className = 'loop';
+  row.innerHTML = `<div class="num">${L.parts.map((pt, i) => `<div>${i ? '' : `<b>${L.id === 'O' ? 'Open' : L.id}</b> `}${pt.key === 'opener' ? '' : `<i>${pt.key}</i>`}</div>`).join('')}</div>`;
+  const col = document.createElement('div'); col.className = 'lanecol';
+  const dts = document.createElement('div'); dts.className = 'dt';
+  for (const pt of L.parts) {
+    const lane = document.createElement('div'); lane.className = 'lane';
+    lane._pt = pt; laneOf.push(lane);
+    let h = '';
+    for (let s = 1000; s < maxLocal; s += 1000) h += `<div class="grid" style="left:${X(s)}px"></div>`;
+    // sections
+    const secs = Object.entries(pt.p.sections);
+    secs.forEach(([k, s], i) => {
+      const ts = s.chips.filter(c => c.t != null).map(c => c.t);
+      const start = i === 0 ? pt.p.start : (ts.length ? Math.min(...ts) : null);
+      if (start == null) return;
+      let end = pt.p.start + pt.len;
+      for (const [, s2] of secs.slice(i+1)) {
+        const t2 = s2.chips.filter(c => c.t != null).map(c => c.t);
+        if (t2.length) { end = Math.min(...t2); break; }
+      }
+      const x0 = X(start - pt.p.start), x1 = X(end - pt.p.start);
+      h += `<div class="sec" data-sec="${k}" style="left:${x0}px;width:${Math.max(0,x1-x0)}px">${i ? '<div class="dv"></div>' : ''}</div>`;
+    });
+    // your casts and bench casts
+    pt.chips.forEach((c, ci) => {
+      if (!visible(c)) return;
+      const bt = c.ref ? c.ref.t : c.refT, bd = c.ref ? c.ref.dur : c.refDur;
+      if (bt != null) h += `<div class="bc ${c.kind==='ghost'?'miss':''}" data-i="${ci}" style="left:${X(bt-pt.bStart)}px;width:${Math.max(2,X(bd)-1)}px"></div>`;
+      if (c.t == null) return;
+      const st = status(c), w = Math.max(2, X(c.dur) - 1);
+      const icon = ICONS[c.id] && w >= 15 ? `<img src="${ICONS[c.id]}" alt="">` : (TXT[c.id] && w >= 22 ? `<em>${TXT[c.id]}</em>` : '');
+      const cls = (c.kind === 'extra' ? 'extra ' : '') + (st === 'slow' ? 'slow' : st === 'few' ? 'few' : '');
+      h += `<div class="cast ${cls}" data-i="${ci}" style="left:${X(c.t-pt.p.start)}px;width:${w}px">${icon}</div>`;
+    });
+    h += `<div class="end" style="left:${X(pt.len)-1}px"></div><div class="bend" style="left:${X(pt.p.refLen)-1}px"></div>`;
+    h += `<div class="wp">${pt.key === 'opener' ? '' : ''}</div><div class="cur"></div>`;
+    lane.innerHTML = h;
+    col.appendChild(lane);
+    const d = pt.p.len != null ? pt.len - pt.p.refLen : null;
+    const dc = d == null ? 'var(--muted)' : d > 400 ? 'var(--bad)' : d > 150 ? 'var(--warn)' : d < -50 ? 'var(--ok)' : 'var(--ink2)';
+    const dd = document.createElement('div'); dd.style.color = dc;
+    dd.textContent = d == null ? 'end' : sgn(d);
+    dd._pt = pt; dd.className = 'dtv';
+    dts.appendChild(dd);
+  }
+  row.appendChild(col); row.appendChild(dts);
+  lanesEl.appendChild(row);
+}
+// weapon word under the loop label
+
+
+// ---- tooltip
+const tip = document.getElementById('tip');
+function showTip(html, e){
+  tip.innerHTML = html; tip.style.display = 'block';
+  const r = tip.getBoundingClientRect();
+  let x = e.clientX + 14, y = e.clientY + 14;
+  if (x + r.width > innerWidth - 4) x = e.clientX - r.width - 14;
+  if (y + r.height > innerHeight - 4) y = e.clientY - r.height - 14;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+function hideTip(){ tip.style.display = 'none'; }
+const lagLine = t => {
+  const l = lagAt(t);
+  return `<div class="lagl">Behind bench here: <b style="color:${l>1000?'var(--bad)':l>300?'var(--warn)':'var(--ok)'}">${sgn(l)} s</b></div>`;
+};
+const TAG = {miss:['Missed','var(--bad)'], few:['Few hits','var(--bad)'], slow:['Slow','var(--warn)'], extra:['Extra','var(--accent)'], ok:['',''] };
+function castTip(pt, c, bench){
+  const st = status(c), [tg, tc] = TAG[st];
+  const icon = ICONS[c.id] ? `<img src="${ICONS[c.id]}" alt="">` : '';
+  let h = `<div class="t">${icon}${esc(c.name)}<span class="tag" style="color:${tc}">${c.kind==='extra' && st!=='extra' ? 'Extra, ' + tg.toLowerCase() : tg}</span></div>`;
+  if (c.kind === 'ghost') {
+    h += `Bench cast it here (${s1(c.refDur)} s), you did not.`;
+    return h + lagLine(pt.p.start + (c.refT - pt.bStart));
+  }
+  const rd = c.ref ? c.ref.dur : c.refDur;
+  h += `Cast <b style="color:var(--ink)">${s1(c.dur)} s</b>` + (rd != null ? ` &middot; bench ${s1(rd)} (${sgn(c.dur - rd)})` : '');
+  if (c.expect != null) h += `<br>Hits <b style="color:${c.hits < c.expect ? 'var(--bad)' : 'var(--ink)'}">${c.hits}/${c.expect}</b>`;
+  else if (c.hits) h += `<br>Hits ${c.hits}`;
+  if (c.stop) h += ` &middot; ended: ${esc(c.stop)}`;
+  if ((c.flags||[]).includes('nobuff')) h += `<br><span style="color:var(--bad)">Ended before its buff applied</span>`;
+  if (c.kind === 'extra') h += `<br><span style="color:var(--accent)">Not in the bench here</span>`;
+  if (bench && c.ref) h += `<br>Bench start ${s1(c.ref.t - pt.bStart)} s into the visit, yours ${s1(c.t - pt.p.start)}`;
+  return h + lagLine(c.t);
+}
+function secTip(pt, k, t){
+  const s = pt.p.sections[k];
+  const ch = s.chips.filter(visible);
+  const cnt = [
+    [ch.filter(c => (c.flags||[]).includes('slow')).length, 'slow', 'var(--warn)'],
+    [ch.filter(c => c.kind === 'ghost').length, 'missed', 'var(--bad)'],
+    [ch.filter(c => (c.flags||[]).some(f => f==='few'||f==='nobuff')).length, 'few hits', 'var(--bad)'],
+    [ch.filter(c => c.kind === 'extra').length, 'extra', 'var(--accent)'],
+  ].filter(x => x[0]).map(([v,l,c]) => `<span style="color:${c}">${v} ${l}</span>`).join(' &middot; ');
+  const d = s.time != null ? s.time - s.refTime : null;
+  let h = `<div class="t">${(pt.key === 'opener' ? 'Opener' : SECN[k])}<span class="tag" style="color:var(--muted)">${pt.key === 'opener' ? '' : 'loop ' + pt.n + ' ' + pt.key}</span></div>`;
+  h += s.time != null ? `<b style="color:var(--ink)">${s1(s.time)} s</b> &middot; bench ${s1(s.refTime)} <b style="color:${d>150?'var(--bad)':d>50?'var(--warn)':'var(--ok)'}">(${sgn(d)})</b>` : `not finished &middot; bench ${s1(s.refTime)} s`;
+  if (cnt) h += '<br>' + cnt;
+  return h + lagLine(t);
+}
+function cursorAt(t){
+  // lag chart
+  const lc = document.getElementById('lagcur'), ld = document.getElementById('lagdot');
+  if (t == null) { lc.setAttribute('visibility','hidden'); ld.setAttribute('visibility','hidden'); }
+  else {
+    lc.setAttribute('x1', lx(t)); lc.setAttribute('x2', lx(t)); lc.setAttribute('visibility','visible');
+    ld.setAttribute('cx', lx(t)); ld.setAttribute('cy', ly(lagAt(t))); ld.setAttribute('visibility','visible');
+  }
+  // lane cursor
+  for (const lane of laneOf) {
+    const pt = lane._pt, cur = lane.querySelector('.cur');
+    const on = t != null && t >= pt.p.start && t < pt.p.start + pt.len;
+    lane.classList.toggle('hl', on);
+    cur.style.display = on ? 'block' : 'none';
+    if (on) cur.style.left = X(t - pt.p.start) + 'px';
+  }
+}
+lanesEl.addEventListener('mousemove', e => {
+  const lane = e.target.closest('.lane');
+  const dtv = e.target.closest('.dtv');
+  if (dtv) {
+    const pt = dtv._pt, d = pt.p.len != null ? pt.len - pt.p.refLen : null;
+    cursorAt(null);
+    return showTip(`<div class="t">${pt.key === 'opener' ? 'Opener' : 'Loop ' + pt.n + ' ' + pt.key}</div>` +
+      (d == null ? `Pull ended in this visit.` : `Visit <b style="color:var(--ink)">${s1(pt.len)} s</b> &middot; bench ${s1(pt.p.refLen)} (${sgn(d)})`) +
+      lagLine(pt.p.start + pt.len - 1), e);
+  }
+  if (!lane) { hideTip(); cursorAt(null); return; }
+  const pt = lane._pt;
+  const x = e.clientX - lane.getBoundingClientRect().left;
+  const t = pt.p.start + x / W * maxLocal;
+  cursorAt(t);
+  const cast = e.target.closest('.cast, .bc');
+  if (cast) return showTip(castTip(pt, pt.chips[+cast.dataset.i], cast.classList.contains('bc')), e);
+  const sec = e.target.closest('.sec');
+  if (sec) return showTip(secTip(pt, sec.dataset.sec, t), e);
+  showTip(`<div class="t">${pt.key === 'opener' ? 'Opener' : 'Loop ' + pt.n + ' ' + pt.key}</div>${s1(t - pt.p.start)} s into the visit` + lagLine(t), e);
+});
+lanesEl.addEventListener('mouseleave', () => { hideTip(); cursorAt(null); });
+svg.addEventListener('mousemove', e => {
+  const r = svg.getBoundingClientRect();
+  const t = Math.max(0, Math.min(endMs, (e.clientX - r.left - padL) / (LW - padL - 4) * endMs));
+  cursorAt(t);
+  const pt = partAt(t);
+  const mm = Math.floor(t/60000), ss = ((t%60000)/1000).toFixed(1).padStart(4,'0');
+  showTip(`<div class="t">${mm}:${ss}<span class="tag" style="color:var(--muted)">${pt.key === 'opener' ? 'opener' : 'loop ' + pt.n + ' ' + pt.key}</span></div>` + lagLine(t).replace('class="lagl"','') , e);
+});
+svg.addEventListener('mouseleave', () => { hideTip(); cursorAt(null); });
+})();
+</script>
+</body>
+</html>

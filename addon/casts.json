@@ -1,0 +1,164 @@
+{
+ "14431": {
+  "name": "Dual Shot",
+  "offset": 566,
+  "spread": 56,
+  "window": 216,
+  "pulse": 0,
+  "casts": 178
+ },
+ "29923": {
+  "name": "Scorched Earth",
+  "offset": 318,
+  "spread": 18,
+  "window": 4156,
+  "pulse": 2000,
+  "casts": 595
+ },
+ "14504": {
+  "name": "Pin Down",
+  "offset": 566,
+  "spread": 48,
+  "window": 150,
+  "pulse": 0,
+  "casts": 162
+ },
+ "29845": {
+  "name": "Blaze Breaker",
+  "offset": 400,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 241
+ },
+ "80247": {
+  "name": "Rend",
+  "offset": 434,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 230
+ },
+ "30682": {
+  "name": "Flaming Flurry",
+  "offset": 400,
+  "spread": 18,
+  "window": 1318,
+  "pulse": 0,
+  "casts": 234
+ },
+ "14364": {
+  "name": "Sever Artery",
+  "offset": 200,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 226
+ },
+ "14365": {
+  "name": "Gash",
+  "offset": 284,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 175
+ },
+ "14363": {
+  "name": "Hamstring",
+  "offset": 234,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 78
+ },
+ "14519": {
+  "name": "Fan of Fire",
+  "offset": 234,
+  "spread": 34,
+  "window": 152,
+  "pulse": 0,
+  "casts": 417
+ },
+ "14381": {
+  "name": "Arcing Arrow",
+  "offset": 682,
+  "spread": 250,
+  "window": 150,
+  "pulse": 0,
+  "casts": 203
+ },
+ "30074": {
+  "name": "Shattering Blow",
+  "offset": 318,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 138
+ },
+ "29613": {
+  "name": "Sundering Leap",
+  "offset": 850,
+  "spread": 52,
+  "window": 150,
+  "pulse": 0,
+  "casts": 126
+ },
+ "14366": {
+  "name": "Savage Leap",
+  "offset": 800,
+  "spread": 8,
+  "window": 150,
+  "pulse": 0,
+  "casts": 241
+ },
+ "80224": {
+  "name": "Rend",
+  "offset": 400,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 185
+ },
+ "14522": {
+  "name": "Combustive Shot",
+  "offset": 968,
+  "spread": 252,
+  "window": 9134,
+  "pulse": 3000,
+  "casts": 5
+ },
+ "14505": {
+  "name": "Smoldering Arrow",
+  "offset": 250,
+  "spread": 50,
+  "window": 150,
+  "pulse": 0,
+  "casts": 27
+ },
+ "29940": {
+  "name": "Flames of War",
+  "buff": 31708,
+  "offset": 484,
+  "spread": 18,
+  "window": 0,
+  "pulse": 0,
+  "casts": 76
+ },
+ "30343": {
+  "name": "Head Butt",
+  "offset": 766,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 48
+ },
+ "30189": {
+  "name": "Blood Reckoning",
+  "buff": 29466,
+  "offset": 234,
+  "spread": 18,
+  "window": 0,
+  "pulse": 0,
+  "casts": 173
+ }
+}

@@ -1,0 +1,420 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrapper Golem Pull</title>
+<style>
+:root {
+  --page: #0d0d0d; --surface: #1a1a19; --surface2: #232426; --ink: #fff; --ink2: #c3c2b7; --muted: #898781;
+  --border: rgba(255,255,255,.10); --accent: #5ea2f0; --bad: #ff6b61; --warn: #f0a53a; --ok: #4ac26b;
+  --hammer: #8f949c; --grenade: #4ac26b; --bomb: #f08a3a; --mortar: #a67be0; --gyro: #5ea2f0; --mine: #e8c34a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, sans-serif; padding: 12px 20px; overflow: hidden; }
+.panel { width: 640px; height: calc(100vh - 24px); max-height: 1056px; display: flex; flex-direction: column; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; font-size: 13px; }
+.tabs a { color: var(--ink2); text-decoration: none; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border); }
+.tabs a.on { color: var(--accent); border-color: var(--accent); }
+.head { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: flex-end; margin-bottom: 6px; }
+.head .big { font-size: 28px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.head .big small { font-size: 13px; font-weight: 400; color: var(--muted); }
+.head .st { font-size: 12px; color: var(--ink2); cursor: default; }
+.head .st b { color: var(--ink); font-variant-numeric: tabular-nums; font-size: 15px; }
+.head .st span { color: var(--muted); }
+.head select { font: inherit; font-size: 12px; background: #222; color: var(--ink2); border: 1px solid var(--border); border-radius: 4px; }
+.ctl { display: flex; gap: 12px; font-size: 12px; color: var(--muted); align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.ctl button { font: inherit; font-size: 12px; padding: 2px 9px; border-radius: 10px; border: 1px solid var(--border); background: transparent; color: var(--ink2); cursor: pointer; }
+.ctl button.on { border-color: var(--accent); color: var(--accent); }
+.grid { flex: 1; min-height: 0; display: grid; grid-template-columns: 50px repeat(3, minmax(0, 1fr)) 64px; grid-template-rows: auto; grid-auto-rows: minmax(56px, 112px); align-content: start; gap: 3px; }
+.cyc { display: flex; flex-direction: column; justify-content: center; align-items: flex-end; text-align: right; padding-right: 4px; font-variant-numeric: tabular-nums; cursor: default; border-radius: 4px; }
+.cyc b { font-size: 16px; }
+.cyc span { font-size: 11px; }
+.cyc .bh { margin-top: 4px; font-size: 13px; font-weight: 600; }
+.colh { color: var(--muted); font-size: 12px; padding: 2px 4px; }
+.rowh { display: flex; flex-direction: column; justify-content: center; padding: 2px 4px; cursor: default; border-radius: 4px; }
+.rowh:hover { background: rgba(255,255,255,.04); }
+.rowh b { font-size: 14px; }
+.rowh span { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cell { background: #3a3c40; border-radius: 5px; padding: 3px 5px 4px; min-width: 0; cursor: default; border: 2px solid transparent; display: flex; flex-direction: column; overflow: hidden; }
+.cell:hover { outline: 1px solid var(--accent); }
+.cell.err { border-color: var(--bad); }
+.cell.xtra { border-color: var(--warn); }
+.cell.none { background: transparent; cursor: default; }
+.cell.none:hover { outline: 0; }
+.cell .tm { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+.cell .tm b { color: var(--ink); font-size: 16px; font-weight: 600; }
+.toks { --s: 40px; flex: 1; display: flex; flex-wrap: nowrap; gap: 0; margin-top: 3px; align-items: center; min-height: 0; }
+.toks.diff { gap: 3px; }
+.clean { color: var(--ink2); opacity: .6; font-size: 11px; }
+.tok { position: relative; padding-top: 0; }
+.tok { flex: none; }
+.tok .im { width: var(--s); height: var(--s); background: #000; position: relative; }
+.tok .im img, .tok .im .tx { width: var(--s); height: var(--s); display: block; }
+.tok .im .tx { background: #333; color: var(--ink2); font-size: 8px; display: flex; align-items: center; justify-content: center; }
+.tok .kit { height: 3px; }
+.tok.ew .pair { display: flex; }
+.tok.aa .im { background: #2a2b2e; display: flex; align-items: center; gap: 3px; overflow: hidden; box-shadow: inset 1px 0 #000; }
+.tok.aa .im img { width: calc(var(--s) * .66); height: calc(var(--s) * .66); margin-left: 2px; opacity: .8; flex: none; }
+.tok.aa .im b { font-size: 11px; color: var(--ink2); }
+.tok.ghost .im img, .tok.ghost .im .tx { opacity: .3; filter: grayscale(1); }
+.tok.ghost .im::after { content: ""; position: absolute; inset: 0; border: 1.5px dashed var(--bad); }
+.tok.extra .im::after { content: "+"; position: absolute; right: -2px; top: -6px; font-size: 13px; font-weight: 700; color: var(--ink); text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.tok.moved .im::after { content: "⇄"; position: absolute; right: -3px; top: -7px; font-size: 11px; color: var(--accent); text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.tok.movedfrom { opacity: .35; }
+.pv .y2.moved { box-shadow: 0 0 0 1.5px var(--accent); }
+.tok.few .im::before { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--bad); z-index: 1; }
+.pv .y2.few { box-shadow: 0 0 0 2px var(--bad); }
+.tok.slow .kit { background: var(--warn) !important; height: 4px; }
+.tok.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); border: 1px solid #000; z-index: 1; }
+.tok.inferred .im { opacity: .8; }
+.tok.inferred .im::before { content: ""; position: absolute; inset: 0; border: 1px dotted var(--ink2); z-index: 1; }
+.tok.fervor .im { box-shadow: 0 -3px 0 -1px #d0473a; }
+.g { color: var(--ok); } .r { color: var(--bad); } .y { color: var(--warn); } .m { color: var(--muted); }
+.foot { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 10px; align-items: center; }
+.foot .k { display: flex; align-items: center; gap: 5px; }
+.key { width: 14px; height: 14px; background: #555; position: relative; }
+.tempo { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, rgb(24,120,58), #3a3c40, rgb(168,32,28)); }
+.card { position: fixed; left: 672px !important; background: rgba(26,26,25,.98); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 12px; display: none; z-index: 10; width: 620px; max-width: calc(100vw - 20px); }
+.card dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin: 2px 0 8px; }
+.card dt { color: var(--muted); } .card dd { margin: 0; font-variant-numeric: tabular-nums; }
+.card img { width: 100%; height: 100%; }
+.tok:hover .im { outline: 1px solid var(--ink); }
+.card h3 { margin: 0 0 2px; font-size: 14px; font-weight: 600; }
+.card .sub { color: var(--muted); margin-bottom: 8px; }
+.card table { border-collapse: collapse; font-variant-numeric: tabular-nums; margin-bottom: 8px; }
+.card td, .card th { padding: 1px 8px 1px 0; text-align: right; }
+.card th { color: var(--muted); font-weight: 400; font-size: 11px; }
+.card td:first-child, .card th:first-child { text-align: left; }
+.pv { display: flex; gap: 2px; margin: 2px 0 8px; flex-wrap: wrap; }
+.pv .col { width: 42px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pv .b, .pv .y2 { width: 28px; height: 28px; position: relative; }
+.pv .b img, .pv .y2 img, .pv .b .tx, .pv .y2 .tx { width: 28px; height: 28px; display: block; }
+.pv .b { opacity: .7; }
+.pv .y2.ghost { outline: 1.5px dashed var(--bad); outline-offset: -2px; }
+.pv .y2.extra { box-shadow: 0 0 0 1.5px var(--warn); }
+.pv .y2.slow { box-shadow: 0 0 0 2px var(--warn); }
+.pv .d { font-size: 9px; font-variant-numeric: tabular-nums; height: 11px; }
+.pv .nm { font-size: 9px; color: var(--muted); width: 42px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pv .lab { width: 34px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: var(--muted); }
+.pv .lab span { height: 28px; display: flex; align-items: center; }
+.ax .lane { position: relative; height: 24px; margin: 2px 0 2px 40px; background: rgba(255,255,255,.03); }
+.ax .lane .nm { position: absolute; left: -40px; top: 5px; font-size: 10px; color: var(--muted); }
+.ax .bar { position: absolute; top: 1px; height: 22px; background: #4b4d52; overflow: hidden; display: flex; align-items: center; padding-left: 1px; box-shadow: inset -1px 0 #000; }
+.ax .bar img, .ax .bar .tx { width: 20px; height: 20px; flex: none; }
+.ax .bar.me { background: #3f5f86; }
+.ax .bar.slow { background: #8a5a12; }
+.ax .bar.extra { box-shadow: inset 0 0 0 1.5px var(--warn); }
+.ax .bar.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bad); }
+.ax .bar.inferred { background: repeating-linear-gradient(45deg, #3f5f86 0 4px, #2c4260 4px 8px); }
+.ax .ticks { position: relative; height: 12px; margin-left: 40px; font-size: 9px; color: var(--muted); }
+.ax .ticks span { position: absolute; transform: translateX(-50%); }
+.empty { color: var(--muted); padding: 20px 0; }
+</style>
+</head>
+<body>
+<div class="panel">
+<div class="tabs"><a class="on" href="/scrapper">Your pull</a><a href="/scrapper/bench">Bench rotation</a><a href="/scrapper/splits">Splits</a></div>
+<div class="head" id="head"></div>
+<div class="ctl" id="ctl"></div>
+<div class="grid" id="grid"><p class="empty">Waiting for a scrapper golem log…</p></div>
+<div class="foot">
+  <span class="k"><span class="key" style="outline:1.5px dashed var(--bad);outline-offset:-2px;background:transparent"></span>bench casts it, you didn't</span>
+  <span class="k"><span class="key"></span><b style="margin-left:-8px">+</b> extra</span>
+  <span class="k"><span class="key"></span><b style="margin-left:-8px;color:var(--accent)">⇄</b> in another whirl than the bench</span>
+  <span class="k"><span class="key" style="box-shadow:inset 0 0 0 2px var(--bad)"></span>missed hits</span>
+  <span class="k"><span class="key" style="box-shadow:0 4px 0 var(--warn)"></span>next cast late</span>
+  <span class="k"><span class="key" style="border-radius:50%;width:9px;height:9px;background:var(--warn)"></span>20 s skill later than the rest of its cycle</span>
+  <span class="k"><span class="key" style="outline:1px dotted var(--ink2);outline-offset:-1px"></span>before the fight, from its hits</span>
+  <span class="k"><span class="tempo"></span>ahead / behind the bench</span>
+</div>
+</div>
+<div class="card" id="card"></div>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const get = u => fetch(u, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const sgn = ms => ms == null ? "" : (ms > 0 ? "+" : ms < 0 ? "−" : "±") + (Math.abs(ms) / 1000).toFixed(2);
+  const sec = ms => ms == null ? "—" : (ms / 1000).toFixed(2) + " s";
+  const clk = ms => { const neg = ms < 0, s = Math.abs(ms) / 1000; return (neg ? "−" : "") + Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
+  const cls = ms => ms == null ? "m" : ms > 50 ? "r" : ms < -50 ? "g" : "m";
+  const KIT = { 5807: "grenade", 5809: "grenade", 5806: "grenade", 5810: "grenade", 5823: "bomb", 5822: "bomb", 5813: "bomb", 76530: "bomb",
+    30885: "mortar", 30307: "mortar", 56920: "gyro", 30357: "gyro", 31248: "gyro", 6161: "mine", 6164: "mine",
+    30088: "hammer", 30713: "hammer", 30501: "hammer", 29785: "hammer", 30489: "hammer" };
+  const HAMMER = new Set([30501, 29785, 30489]);
+  const SECL = { pre: "Opener", core: "Electro-whirl + Shrapnel", fill: "Filler", burst: "Bomb burst" };
+  const LATE_OK = 400;
+  let ICONS = {}, P = null, HIST = [], current = null, follow = true, ALL = false, TW = new Set();
+  try { ALL = localStorage.getItem("scr.all") === "1"; } catch (e) {}
+  const icon = (id, name) => ICONS[id] ? `<img src="${esc(ICONS[id])}" alt="">` : `<span class="tx">${esc(String(name || id).slice(0, 5))}</span>`;
+  const kit = id => `<div class="kit" style="background: var(--${KIT[id] || "hammer"})"></div>`;
+  function tempoBg(d) {
+    if (d == null || Math.abs(d) <= 50) return "";
+    const k = 0.35 + 0.65 * Math.min(1, (Math.abs(d) - 50) / 350);
+    const from = [58, 60, 64], to = d > 0 ? [168, 32, 28] : [24, 120, 58];
+    return `background: rgb(${from.map((v, i) => Math.round(v + (to[i] - v) * k)).join(",")})`;
+  }
+  const fervorOn = t => t != null && (P.fervorIv || []).some(([a, b]) => t >= a && t < b);
+  const isProblem = c => c.kind === "ghost" || c.kind === "extra" || c.kind === "moved" || (c.flags || []).length || cdLate(c);
+  const cdLate = c => TW.has(String(c.id)) && c._excess != null && c._excess > LATE_OK;
+  function chipCls(c) {
+    const k = [];
+    if (c.kind === "ghost") k.push("ghost");
+    if (c.kind === "extra") k.push("extra");
+    if (c.kind === "moved") k.push("moved");
+    if (c.kind === "movedfrom") k.push("movedfrom");
+    (c.flags || []).forEach(f => k.push(f));
+    if (cdLate(c)) k.push("cdlate");
+    if (c.pre === "hit") k.push("inferred");
+    if (fervorOn(c.t)) k.push("fervor");
+    return k.join(" ");
+  }
+  // all casts of a cell, compressed: Electro-whirl + Shrapnel one block, hammer autos one block
+  function compress(chips) {
+    const out = [];
+    chips.filter(c => c.kind !== "cut").forEach(c => {
+      const last = out[out.length - 1];
+      if (c.kind !== "ghost" && c.id === 5807 && last && last.ew && !last.shrap) { last.shrap = c; return; }
+      if (c.kind !== "ghost" && HAMMER.has(c.id)) {
+        if (last && last.aa) { last.list.push(c); return; }
+        out.push({ aa: true, list: [c] }); return;
+      }
+      if (c.kind !== "ghost" && c.id === 30088) { out.push({ ew: true, c }); return; }
+      out.push({ c });
+    });
+    // ghosts go last
+    const gh = x => x.c && (x.c.kind === "ghost" || x.c.kind === "movedfrom");
+    return out.filter(x => !gh(x)).concat(out.filter(gh));
+  }
+  let TIPS = [];
+  function tokHtml(x) {
+    const ti = TIPS.push(x) - 1;
+    return tokInner(x).replace('<div class="tok', `<div data-ti="${ti}" class="tok`);
+  }
+  function tokInner(x) {
+    if (x.ew) {
+      const bad = [x.c, x.shrap].filter(Boolean).some(isProblem);
+      return `<div class="tok ew ${bad ? chipCls([x.c, x.shrap].find(c => c && isProblem(c))) : ""}"><div class="pair"><div class="im">${icon(30088)}</div><div class="im">${icon(5807)}</div></div><div class="kit" style="background: linear-gradient(90deg, var(--hammer) 50%, var(--grenade) 50%)"></div></div>`;
+    }
+    if (x.aa) {
+      const n = x.list.length, bad = x.list.find(isProblem);
+      return `<div class="tok aa ${bad ? chipCls(bad) : ""}" data-n="${n}"><div class="im" style="width:calc(var(--s) * ${Math.max(1.1, n * 0.36).toFixed(2)})">${icon(30501)}<b>${n}</b></div>${kit(30501)}</div>`;
+    }
+    return `<div class="tok ${chipCls(x.c)}"><div class="im">${icon(x.c.id, x.c.name)}</div>${kit(x.c.id)}</div>`;
+  }
+  function cellBody(chips) {
+    if (ALL) return `<div class="toks">${compress(chips).map(tokHtml).join("")}</div>`;
+    const bad = chips.filter(c => c.kind !== "cut" && isProblem(c));
+    if (!bad.length) return `<div class="toks diff"><span class="clean">same as bench</span></div>`;
+    return `<div class="toks diff">${bad.map(c => tokHtml({ c })).join("")}</div>`;
+  }
+
+  // A floating filler the bench casts in another whirl of the same cycle is "moved", not missing
+  // and extra: pair each extra with a ghost of the same skill in the cycle.
+  function pairMoves() {
+    P.rows.forEach(r => {
+      const tw = r.minis.flatMap(m => !m ? [] : Object.values(m.sections).flatMap(s => s.chips))
+        .concat(r.pre ? r.pre.chips : []).filter(c => TW.has(String(c.id)) && c.late != null);
+      // beyond the cycle's drift, and beyond how much later the bench casts the same skill than its
+      // own least late 20 s skill (some skills always wait on others)
+      const base = tw.length ? Math.min(...tw.map(c => c.late)) : 0;
+      const rl = tw.filter(c => c.refLate != null), rbase = rl.length ? Math.min(...rl.map(c => c.refLate)) : 0;
+      tw.forEach(c => { c._excess = c.late - base - (c.refLate != null ? c.refLate - rbase : 0); });
+    });
+    P.rows.forEach(r => {
+      const chips = r.minis.flatMap((m, k) => !m ? [] : Object.values(m.sections).flatMap(s => s.chips.map(c => (c._w = k, c))));
+      const ghosts = chips.filter(c => c.kind === "ghost");
+      chips.filter(c => c.kind === "extra").forEach(c => {
+        const g = ghosts.find(x => x.id === c.id && x._w !== c._w && !x._used);
+        if (g) { g._used = true; g.kind = "movedfrom"; c.kind = "moved"; c.movedFrom = g._w; g.movedTo = c._w; }
+      });
+    });
+  }
+  function render() {
+    TIPS = [];
+    TW = new Set(P.twenty || []);
+    const lastLag = P.lag.length ? P.lag[P.lag.length - 1] : null;
+    const dps = P.dps / P.benchDps * 100 - 100, B = P.buffs, R = P.refBuffs;
+    $("head").innerHTML = `
+      <div><div class="st"><select id="pick">${HIST.slice().reverse().map(h => `<option value="${h.log}" ${h.log === P.log ? "selected" : ""}>${h.log.slice(4, 6)}/${h.log.slice(6, 8)} ${h.log.slice(9, 11)}:${h.log.slice(11, 13)} · ${clk(h.secs * 1000)}</option>`).join("")}</select>
+        <label><input type="checkbox" id="follow" ${follow ? "checked" : ""}> newest</label></div>
+        <div class="big">${clk(P.secs * 1000)} <small>bench ${clk(P.benchSecs * 1000)}</small></div></div>
+      <div class="st" title="behind the bench at the last whirl">behind<br><b class="${cls(lastLag)}">${sgn(lastLag)}</b></div>
+      <div class="st">DPS<br><b>${(P.dps / 1000).toFixed(1)}k</b> <span class="${dps < 0 ? "r" : "g"}">${dps > 0 ? "+" : "−"}${Math.abs(dps).toFixed(0)}%</span></div>
+      <div class="st" title="Bloodstone Fervor uptime, you · bench">Fervor<br><b>${B.fervor}%</b> <span>${R.fervor}</span></div>
+      <div class="st" title="Superspeed uptime, you · bench">SS<br><b>${B.superspeed}%</b> <span>${R.superspeed}</span></div>
+      <div class="st" title="Object in Motion strike bonus, you · bench">Motion<br><b>+${B.motion.bonus.toFixed(1)}%</b> <span>${R.motion.bonus.toFixed(1)}</span></div>`;
+    $("pick").onchange = e => { follow = false; load(e.target.value); };
+    $("follow").onchange = e => { follow = e.target.checked; if (follow && HIST.length) load(HIST[HIST.length - 1].log); };
+    $("ctl").innerHTML = `Show <button data-a="0" class="${ALL ? "" : "on"}">differences</button><button data-a="1" class="${ALL ? "on" : ""}">all casts</button>`;
+    $("ctl").onclick = e => { const a = e.target.dataset && e.target.dataset.a; if (a == null) return; ALL = a === "1"; try { localStorage.setItem("scr.all", a); } catch (err) {} render(); };
+
+    let h = `<div></div><div class="colh">Bomb burst</div><div class="colh">Nade filler</div><div class="colh">Other filler</div><div class="colh" style="text-align:right">Cycle</div>`;
+    let behind = 0;
+    P.rows.forEach((r, ri) => {
+      const d = r.len != null && r.refLen != null ? r.len - r.refLen : null;
+      if (d != null) behind += d;
+      const lateCls = r.late20 != null && r.refLate20 != null ? cls(r.late20 - r.refLate20) : "m";
+      h += `<div class="rowh" data-r="${ri}" data-m="cyc"><b>${r.n}</b><span>${clk(r.start)}</span>${r.late20 != null ? `<span class="${lateCls}" title="20 s skills after ready">+${(r.late20 / 1000).toFixed(1)}</span>` : ""}</div>`;
+      for (let k = 0; k < 3; k++) {
+        const m = r.minis[k];
+        if (!m && k === 0 && r.pre) {
+          const chips = r.pre.chips, err = chips.some(c => c.kind === "ghost"), xt = chips.some(c => c.kind === "extra");
+          const ew = r.minis.find(Boolean), od = ew && ew.refStart != null ? ew.start - ew.refStart : null;
+          h += `<div class="cell ${err ? "err" : xt ? "xtra" : ""}" style="${tempoBg(od)}" data-r="${ri}" data-m="pre"><div class="tm"><span>opener</span><span><b>${ew ? (ew.start / 1000).toFixed(2) : ""}</b> ${sgn(od)}</span></div>${cellBody(chips)}</div>`;
+          continue;
+        }
+        if (!m) { h += `<div class="cell none"></div>`; continue; }
+        const chips = Object.values(m.sections).flatMap(s => s.chips).filter(c => m.len != null || c.kind !== "ghost");
+        const md = m.len != null && m.refLen != null ? m.len - m.refLen : null;
+        const err = chips.some(c => c.kind === "ghost"), xt = chips.some(c => c.kind === "extra");
+        h += `<div class="cell ${err ? "err" : xt ? "xtra" : ""}" style="${tempoBg(md)}" data-r="${ri}" data-m="${k}">
+          <div class="tm"><span>${clk(m.start)}</span><span><b>${m.len != null ? (m.len / 1000).toFixed(2) : "…"}</b> ${sgn(md)}</span></div>${cellBody(chips)}</div>`;
+      }
+      h += `<div class="cyc" style="${tempoBg(d)}" data-r="${ri}" data-m="cyc"><b>${r.len != null ? (r.len / 1000).toFixed(2) : "…"}</b><span class="${cls(d)}">${sgn(d)}</span>${d != null ? `<span class="bh ${cls(behind)}" title="behind the bench after this cycle">${sgn(behind)}</span>` : ""}</div>`;
+    });
+    $("grid").innerHTML = h;
+    fit();
+  }
+  // Icons as big as they can be (up to 44 px), smaller when a cell's casts don't fit its width or height.
+  function fit() {
+    document.querySelectorAll(".toks").forEach(t => {
+      let n = 0;
+      [...t.children].forEach(c => { n += c.classList.contains("ew") ? 2 : c.classList.contains("aa") ? Math.max(1.1, +c.dataset.n * 0.36) : c.classList.contains("tok") ? 1 : 0; });
+      const gaps = t.classList.contains("diff") ? 3 * Math.max(0, t.children.length - 1) : 0;
+      const w = (t.clientWidth - gaps) / Math.max(1, n), hgt = t.clientHeight - 6;
+      t.style.setProperty("--s", Math.max(12, Math.floor(Math.min(44, w, hgt))) + "px");
+    });
+  }
+  addEventListener("resize", () => P && fit());
+
+  // ---- hover card: splits, bench vs yours as tiles, and both on one time axis ----
+  function tiles(chips) {
+    return `<div class="pv"><div class="lab"><span>bench</span><span>you</span></div>${chips.filter(c => c.kind !== "cut").map(c => {
+      const b = c.kind === "ghost" || c.kind === "movedfrom" ? icon(c.id, c.name) : c.ref ? icon(c.ref.id, c.ref.name) : "";
+      const y = c.kind === "ghost" || c.kind === "movedfrom" ? "" : icon(c.id, c.name);
+      const W = ["burst", "nade", "other"];
+      const d = (c.flags || []).includes("few") ? `${c.landed}/${c.expect} hits` : c.kind === "ghost" ? "miss" : c.kind === "movedfrom" ? `to ${W[c.movedTo]}` : c.kind === "moved" ? `from ${W[c.movedFrom]}` : c.kind === "extra" ? "extra" : c.lost != null ? sgn(c.lost) : "";
+      return `<div class="col"><div class="b">${b}</div><div class="y2 ${chipCls(c)}">${y}</div><div class="d ${c.lost != null ? cls(c.lost) : c.kind === "ghost" ? "r" : "y"}">${d}</div><div class="nm" title="${esc(c.name)}">${esc(c.name)}</div></div>`;
+    }).join("")}</div>`;
+  }
+  function axis(chips, myStart, refStart) {
+    const me = chips.filter(c => c.kind !== "cut" && c.kind !== "ghost" && c.kind !== "movedfrom" && c.t != null).map(c => ({ c, a: c.t - myStart, b: c.t - myStart + (c.dur || 0) }));
+    const ben = [];
+    chips.forEach(c => {
+      if (c.kind === "ghost" || c.kind === "movedfrom") ben.push({ c, a: c.refT - refStart, b: c.refT - refStart + (c.refDur || 0), ghost: true });
+      else if (c.ref) ben.push({ c: c.ref, a: c.ref.t - refStart, b: c.ref.t - refStart + (c.ref.dur || 0) });
+    });
+    const lo = Math.min(0, ...me.map(x => x.a), ...ben.map(x => x.a)), hi = Math.max(...me.map(x => x.b), ...ben.map(x => x.b), 1000);
+    const W = 560 - 40, X = t => (t - lo) / (hi - lo) * W;
+    const bar = (x, k) => `<div class="bar ${k}" style="left:${X(x.a)}px;width:${Math.max(3, X(x.b) - X(x.a))}px" title="${esc(x.c.name)}">${icon(x.c.id, x.c.name)}</div>`;
+    let ticks = "";
+    for (let t = Math.ceil(lo / 1000) * 1000; t <= hi; t += 1000) ticks += `<span style="left:${X(t)}px">${t / 1000}s</span>`;
+    return `<div class="ax"><div class="lane"><span class="nm">bench</span>${ben.map(x => bar(x, x.ghost ? "ghost" : "")).join("")}</div>
+      <div class="lane"><span class="nm">you</span>${me.map(x => bar(x, "me " + (x.c.kind === "extra" ? "extra " : "") + ((x.c.flags || []).includes("slow") ? "slow " : "") + (x.c.pre === "hit" ? "inferred" : ""))).join("")}</div>
+      <div class="ticks">${ticks}</div></div>`;
+  }
+  function cellCard(r, m) {
+    if (m === "pre") {
+      const chips = r.pre.chips;
+      const inf = chips.filter(c => c.pre === "hit").length;
+      return `<h3>Opener</h3><div class="sub">Time from the fight start (the first hit). Casts before it aren't in the log:
+        ${inf ? "yours come from each skill's first hit minus its usual time to hit (bomb fuse, mine detonation), dotted;" : ""}
+        a cast still running at the start comes from its end. The bench's pre-fight bombs and mines are known only from one hit more than casts, so their times are a guess (back to back, longest fuse first). The skill that started the fight isn't in either log.</div>
+        ${tiles(chips)}${axis(chips, 0, 0)}`;
+    }
+    const mm = r.minis[+m];
+    const chips = Object.values(mm.sections).flatMap(s => s.chips);
+    const rows = Object.entries(mm.sections).map(([k, s]) => `<tr><td>${SECL[k]}</td><td>${sec(s.time)}</td><td class="m">${sec(s.refTime)}</td><td class="${cls(s.time != null && s.refTime != null ? s.time - s.refTime : null)}">${s.time != null && s.refTime != null ? sgn(s.time - s.refTime) : ""}</td></tr>`).join("");
+    const d = mm.len != null && mm.refLen != null ? mm.len - mm.refLen : null;
+    return `<h3>Cycle ${r.n} · ${["Bomb burst", "Nade filler", "Other filler"][+m] || "Whirl " + (+m + 1)}${r.refN !== r.n && r.refN != null ? ` <span class="m">(bench cycle ${r.refN})</span>` : ""}</h3>
+      <div class="sub">${sec(mm.len)} · bench ${sec(mm.refLen)} · <span class="${cls(d)}">${sgn(d)}</span> · starts at ${clk(mm.start)}, bench ${mm.refStart != null ? clk(mm.refStart) : "—"}</div>
+      <table><tr><th>Split</th><th>you</th><th>bench</th><th></th></tr>${rows}</table>
+      ${tiles(chips)}${axis(chips, mm.start, mm.refStart != null ? mm.refStart : mm.start)}`;
+  }
+  const WN = ["bomb burst", "nade filler", "other filler"];
+  function skillRows(c) {
+    const rows = [];
+    if (c.kind === "ghost") rows.push(["", `<span class="r">the bench casts it here, you didn't</span>`]);
+    if (c.kind === "movedfrom") rows.push(["", `<span class="m">you cast it in the ${WN[c.movedTo]} instead</span>`]);
+    if (c.kind === "moved") rows.push(["", `<span style="color:var(--accent)">the bench casts it in the ${WN[c.movedFrom]}</span>`]);
+    if (c.kind === "extra") rows.push(["", `<span class="y">the bench has no such cast in this cycle</span>`]);
+    if (c.kind === "ghost" || c.kind === "movedfrom") { rows.push(["Bench cast time", sec(c.refDur)], ["Bench at", c.refT != null ? clk(c.refT) : "—"]); return rows; }
+    rows.push(["At", clk(c.t) + (c.ref ? ` <span class="m">bench ${clk(c.ref.t)}</span>` : "")]);
+    if (c.pre) rows.push(["", c.pre === "end" ? "under way at the fight start: placed from its end" : c.pre === "order" ? "mine placed before the fight: time from your opener order" : `placed before the fight: from its first hit at ${clk(c.hit)}`]);
+    rows.push(["Cast time", sec(c.dur) + (c.refDur != null ? ` <span class="m">bench ${sec(c.refDur)}</span>` : "")]);
+    if (c.landed != null) rows.push(["Hits", `<b class="${c.landed < c.expect ? "r" : ""}">${c.landed} of ${c.expect}</b>`]);
+    if (c.stop && c.stop !== "done") rows.push(["Ended by", esc(c.stop)]);
+    if (c.slot != null && !c.pre) rows.push(["Start to next cast", sec(c.slot) + (c.refSlot != null ? ` <span class="m">bench ${sec(c.refSlot)}</span>` : "")]);
+    if (c.lost != null && !c.pre) rows.push(["Lost here", `<b class="${cls(c.lost)}">${sgn(c.lost)}</b>`]);
+    if (c.cdWait) rows.push(["Next skill on cooldown", `${sec(c.cdWait)} <span class="m">not counted</span>`]);
+    if (c.late != null && c.late >= 0) rows.push(["After ready", `<b class="${cdLate(c) ? "y" : ""}">${sgn(c.late)}</b>` + (c.refLate != null ? ` <span class="m">bench ${sgn(c.refLate)}</span>` : "") + (c._excess != null && c._excess > 50 ? ` <span class="${cdLate(c) ? "y" : "m"}">${sgn(c._excess)} beyond the cycle's drift</span>` : "")]);
+    if (fervorOn(c.t)) rows.push(["Bloodstone Fervor", "on (+7% strike)"]);
+    return rows;
+  }
+  function skillCard(x) {
+    const one = c => `<dl>${skillRows(c).map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl>`;
+    if (x.ew) return `<h3>Electro-whirl + Shrapnel</h3><b>Electro-whirl</b>${one(x.c)}${x.shrap ? `<b>Shrapnel Grenade</b>${one(x.shrap)}` : ""}`;
+    if (x.aa) return `<h3>Hammer autos · ${x.list.length} casts</h3><table><tr><th>cast</th><th>at</th><th>time</th><th>hits</th><th>lost</th></tr>${x.list.map(c => `<tr><td>${esc(c.name)}${c.kind === "extra" ? ' <span class="y">extra</span>' : c.kind === "ghost" ? ' <span class="r">missed</span>' : ""}</td><td>${c.t != null ? clk(c.t) : "—"}</td><td>${sec(c.dur)}</td><td class="${c.landed != null && c.landed < c.expect ? "r" : ""}">${c.landed != null ? c.landed + "/" + c.expect : ""}</td><td class="${cls(c.lost)}">${c.lost != null ? sgn(c.lost) : ""}</td></tr>`).join("")}</table>`;
+    return `<h3 style="display:flex;gap:8px;align-items:center"><span style="width:28px;height:28px;display:inline-block">${icon(x.c.id, x.c.name)}</span>${esc(x.c.name)}</h3>${one(x.c)}`;
+  }
+  function cycCard(r) {
+    const rows = r.cd.map(c => `<tr><td>${esc(c.name)}</td><td>${clk(c.t)}</td><td class="${c.late != null && c.late > LATE_OK ? "y" : ""}">${c.late != null ? sgn(c.late) : "—"}</td><td class="m">${c.refLate != null ? sgn(c.refLate) : "—"}</td></tr>`).join("")
+      + r.cdMissing.map(x => `<tr><td>${esc(x.name)}</td><td colspan="3" class="r">bench casts it, you didn't</td></tr>`).join("");
+    const fm = r.fervor.mine, fr = r.fervor.ref, b = r.buffs, rb = r.refBuffs || {};
+    return `<h3>Cycle ${r.n}</h3><div class="sub">${sec(r.len)} · bench ${sec(r.refLen)}. A 20 s skill is ready 16 s after its cast ends with alacrity, so the cycle can't be much shorter.</div>
+      <table><tr><th>Cooldown skill</th><th>cast</th><th>after ready</th><th>bench</th></tr>${rows}</table>
+      <div>Fervor covers ${fm.inside.length} of ${fm.of} 20 s skills${fr ? ` (bench ${fr.inside.length} of ${fr.of})` : ""} · Superspeed ${b.superspeed}% (bench ${rb.superspeed != null ? rb.superspeed + "%" : "—"})</div>`;
+  }
+  const card = $("card");
+  document.addEventListener("mouseover", e => {
+    const tk = e.target.closest("[data-ti]");
+    if (tk && P) {
+      card.innerHTML = skillCard(TIPS[+tk.dataset.ti]);
+      card.style.display = "block";
+      const rc = tk.getBoundingClientRect();
+      card.style.top = Math.max(8, Math.min(rc.top, innerHeight - card.offsetHeight - 8)) + "px";
+      return;
+    }
+    const el = e.target.closest("[data-m]");
+    if (!el || !P || el.classList.contains("none")) { card.style.display = "none"; return; }
+    const r = P.rows[+el.dataset.r], m = el.dataset.m;
+    card.innerHTML = m === "cyc" ? cycCard(r) : cellCard(r, m);
+    card.style.display = "block";
+    const rc = el.getBoundingClientRect();
+    let x = rc.right + 8;
+    if (x + card.offsetWidth > innerWidth - 8) x = Math.max(8, rc.left - card.offsetWidth - 8);
+    card.style.left = x + "px";
+    card.style.top = Math.max(8, Math.min(rc.top, innerHeight - card.offsetHeight - 8)) + "px";
+  });
+
+  async function load(stem) {
+    current = stem;
+    try { P = await get("/api/scrapper/compare?log=" + stem); TW = new Set(P.twenty || []); pairMoves(); render(); }
+    catch (e) { $("grid").innerHTML = `<p class="empty">Could not read ${esc(stem)}: ${esc(e.message)}</p>`; }
+  }
+  let ver = null;
+  async function tick() {
+    try {
+      const v = (await get("/api/version")).v;
+      if (ver && v !== ver) { location.hash = current || ""; location.reload(); return; }
+      ver = v;
+      const l = await get("/api/scrapper/latest");
+      if (l.count !== HIST.length) HIST = await get("/api/scrapper/history");
+      if ((follow || !current) && l.latest && l.latest !== current) load(l.latest);
+    } catch (e) {}
+  }
+  (async () => {
+    ICONS = await get("/api/scrapper/icons").catch(() => ({}));
+    HIST = await get("/api/scrapper/history").catch(() => []);
+    const h = location.hash.slice(1);
+    if (h && HIST.some(x => x.log === h) && h !== (HIST[HIST.length - 1] || {}).log) { follow = false; load(h); }
+    await tick();
+    setInterval(tick, 2000);
+  })();
+})();
+</script>
+</body>
+</html>

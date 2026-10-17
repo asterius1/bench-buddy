@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golem coach</title>
+<style>
+:root{
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+  --border:rgba(255,255,255,.10); --accent:#5ea2f0;
+  --bad:#ff6b61; --warn:#f0a53a; --ok:#4ac26b;
+  --panel:rgba(13,13,13,.84); --game:#3a3c3e;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font:13px/1.3 system-ui,sans-serif}
+#stage{position:relative;width:1920px;height:1080px;background:var(--game);overflow:hidden}
+#stage .fake{position:absolute;left:880px;top:420px;width:160px;height:300px;border-radius:80px 80px 20px 20px;background:#4a4c4f}
+#stage .fake2{position:absolute;left:1280px;top:380px;width:260px;height:360px;border-radius:120px;background:#444648}
+#panel{position:absolute;left:24px;top:40px;width:640px;height:1000px;background:var(--panel);
+  border:1px solid var(--border);border-radius:8px;padding:12px 14px;overflow:hidden;display:flex;flex-direction:column;gap:10px}
+h2{margin:0;font-size:11px;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.head{display:flex;align-items:flex-end;gap:18px}
+.big{font-size:34px;font-weight:700;line-height:1}
+.big small{font-size:13px;font-weight:400;color:var(--ink2);margin-left:4px}
+.stat{display:flex;flex-direction:column;gap:2px}
+.stat .lbl{font-size:11px;color:var(--muted)}
+.stat .v{font-size:18px;font-weight:600}
+.bad{color:var(--bad)} .warn{color:var(--warn)} .ok{color:var(--ok)} .mut{color:var(--muted)}
+#spark{width:100%;height:44px;display:block;cursor:crosshair}
+.habit{display:grid;grid-template-columns:18px 26px 1fr 54px 128px;align-items:center;gap:8px;
+  height:32px;padding:0 6px;border-radius:5px;cursor:default}
+.habit:hover,.habit.on{background:rgba(94,162,240,.12)}
+.rank{color:var(--muted);font-size:12px;text-align:right}
+.ic{width:26px;height:26px;border-radius:4px;background:var(--surface);display:flex;align-items:center;justify-content:center;
+  font-size:9px;color:var(--ink2);overflow:hidden;flex:none}
+.ic img{width:100%;height:100%;display:block}
+.hl .t{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hl .s{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cost{text-align:right;font-weight:600}
+.pips{display:flex;gap:2px}
+.pip{width:11px;height:14px;border-radius:2px;background:rgba(255,255,255,.06);font-size:8px;color:transparent;text-align:center;line-height:14px}
+.pip.hit{background:var(--bad);color:#000}
+.pip.hit.w{background:var(--warn)}
+.pip.miss{background:transparent;outline:1px solid var(--bad)}
+.pips.lbl .pip{background:none;color:var(--muted)}
+#map{display:grid;grid-template-columns:24px repeat(5,1fr) 46px;gap:3px}
+#map .ch{font-size:10px;color:var(--muted);text-align:center;white-space:nowrap;overflow:hidden}
+#map .rl{font-size:11px;color:var(--muted);display:flex;align-items:center;justify-content:center}
+.cell{height:22px;border-radius:3px;background:var(--surface);display:flex;align-items:center;justify-content:space-between;
+  padding:0 5px;font-size:11px;color:var(--ink2);border:1px solid transparent;cursor:default}
+.cell.none{background:transparent;border:1px dashed var(--border);color:var(--muted);justify-content:center}
+.cell .n{font-size:10px;color:var(--ink)}
+.cell:hover,.cell.sel{border-color:var(--accent)}
+.cell.hlt{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink)}
+#map.dim .cell:not(.hlt){opacity:.35}
+.lagc{font-size:11px;text-align:right;align-self:center;color:var(--ink2)}
+#detail{flex:1;min-height:0;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:6px}
+#detail .dt{display:flex;justify-content:space-between;align-items:baseline}
+#detail .dt b{font-size:14px}
+.lane{position:relative;height:30px}
+.lane .lb{position:absolute;left:0;top:8px;font-size:10px;color:var(--muted);width:40px}
+.chip{position:absolute;top:0;height:28px;border-radius:3px;background:var(--surface);border:1px solid var(--border);overflow:hidden;
+  display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--ink2)}
+.chip img{height:26px;width:26px}
+.chip.slow,.chip.few{border:2px solid var(--bad)}
+.chip.extra{border:2px solid var(--warn)}
+.chip.ghost{border:2px dashed var(--bad);opacity:.8}
+.occ{font-size:11px;color:var(--ink2);line-height:1.5}
+.occ span{margin-right:8px;white-space:nowrap}
+.key{display:flex;gap:12px;font-size:10px;color:var(--muted);margin-top:auto}
+.key i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:-1px;margin-right:3px}
+#tip{position:fixed;pointer-events:none;background:#111;border:1px solid var(--border);border-radius:6px;padding:7px 9px;
+  font-size:12px;min-width:170px;display:none;z-index:9;box-shadow:0 4px 14px rgba(0,0,0,.5)}
+#tip table{border-collapse:collapse} #tip td{padding:1px 8px 1px 0} #tip td:first-child{color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="stage"><div class="fake"></div><div class="fake2"></div>
+<div id="panel">
+  <div class="head" id="head"></div>
+  <div>
+    <h2>Behind the bench over the pull</h2>
+    <svg id="spark"></svg>
+  </div>
+  <div>
+    <h2 style="margin-bottom:4px">Fix first <span class="mut" style="text-transform:none;font-weight:400">· time lost, loops 1 to 9</span></h2>
+    <div id="habits"></div>
+    <h2 style="margin:8px 0 4px">Skipped <span class="mut" style="text-transform:none;font-weight:400">· damage lost</span></h2>
+    <div id="misses"></div>
+  </div>
+  <div>
+    <h2 style="margin-bottom:4px">Where <span class="mut" style="text-transform:none;font-weight:400">· seconds lost per section, problems</span></h2>
+    <div id="map"></div>
+  </div>
+  <div id="detail"></div>
+</div>
+</div>
+<div id="tip"></div>
+<script src="data.js"></script>
+<script>
+const P = window.PULL, ICONS = window.ICONS || {};
+const SEC = {opener:{open:'Opener'}, sword:{a:'Sword start',b:'Flurry part'}, bow:{open:'Longbow open',fill:'Fillers',close:'Close'}};
+const SHORT = {23285:'Stow', 23275:'Dodge'};
+const COLS = [['sword','a'],['sword','b'],['bow','open'],['bow','fill'],['bow','close']];
+const s1 = ms => (ms/1000).toFixed(1), s2 = ms => (ms/1000).toFixed(2);
+const sgn = ms => (ms>0?'+':ms<0?'−':'') + s1(Math.abs(ms));
+const icon = (id,name) => ICONS[id] ? `<img src="${ICONS[id]}" alt="">` : (SHORT[id] || (name||'?').slice(0,5));
+const tip = document.getElementById('tip');
+function showTip(e, html){ tip.innerHTML = html; tip.style.display='block';
+  const r = tip.getBoundingClientRect(); let x = e.clientX+14, y = e.clientY+14;
+  if (x+r.width > innerWidth) x = e.clientX-r.width-10; if (y+r.height > innerHeight) y = e.clientY-r.height-10;
+  tip.style.left = x+'px'; tip.style.top = y+'px'; }
+const hideTip = () => tip.style.display='none';
+
+// ---- flatten sections ----
+const secs = [];           // {loop, part, key, label, s, lost, probs}
+const casts = [];          // ok/extra with ref: rotation lag points
+// rotation lag: P.lag gives how far behind the bench each weapon swap is; inside a weapon visit
+// add the drift of each cast against the bench cast it lines up with
+let swapI = -1, prevLag = 0;
+P.rows.forEach(r => ['opener','sword','bow'].forEach(part => {
+  if (!r[part]) return;
+  let partLag = 0;
+  if (part !== 'opener') { swapI++; partLag = P.lag[swapI] != null ? P.lag[swapI] : prevLag; }
+  prevLag = partLag;
+  let first = null;
+  const ks = Object.keys(r[part].sections);
+  ks.forEach(k => {
+    const s = r[part].sections[k];
+    const o = {loop:r.n, part, key:k, label:SEC[part][k], s, lost:null, probs:0, end:false};
+    if (s.time != null) {
+      // sibling with no time of its own was merged into this one
+      let ref = s.refTime;
+      ks.forEach(k2 => { if (k2!==k && r[part].sections[k2].time == null && r[part].sections[k2].chips.some(c=>c.kind!=='ghost')===false && r[part].len!=null) ref += r[part].sections[k2].refTime; });
+      o.lost = s.time - ref;
+    } else o.end = r[part].len == null;
+    s.chips.forEach(c => {
+      c._sec = o;
+      if (c.kind==='ghost' || c.kind==='extra' || (c.flags||[]).length) o.probs++;
+      if (c.kind==='ok' && c.ref) { first ||= c; casts.push({c, lag:partLag + (c.t-first.t) - (c.ref.t-first.ref.t), sec:o}); }
+    });
+    secs.push(o);
+  });
+}));
+casts.sort((a,b)=>a.c.t-b.c.t);
+// drop spikes where a filler lined up with the wrong bench cast
+for (let i = casts.length-2; i > 0; i--) {
+  const a = casts[i-1].lag, b = casts[i].lag, c = casts[i+1].lag;
+  if (Math.abs(b-a) > 600 && Math.abs(b-c) > 600) casts.splice(i,1);
+}
+const lagEnd = P.lag[P.lag.length-1];
+const secOf = (loop,part,key) => secs.find(o=>o.loop===loop&&o.part===part&&o.key===key);
+
+// ---- habits ----
+// a section with 3+ missed casts is "lost the order": one habit, its chips are not counted again
+const H = {}, M = {};
+const lostOrder = {id:'order', name:'Lost the order', where:'recast or skipped a chain', cost:0, occ:[], icon:null};
+secs.forEach(o => {
+  const ghosts = o.s.chips.filter(c=>c.kind==='ghost').length;
+  if (ghosts >= 3 && !o.end && o.lost != null) { lostOrder.cost += Math.max(0,o.lost); lostOrder.occ.push({o, ms:Math.max(0,o.lost), what:ghosts+' missed'}); o.order = true; return; }
+  if (ghosts >= 3 && o.lost == null && !o.end) { lostOrder.occ.push({o, ms:0, what:'merged'}); o.order = true; return; }
+  if (o.end) return;
+  // an extra cast that stands in for a skipped one only costs the difference
+  const exDur = o.s.chips.filter(c=>c.kind==='extra').reduce((a,c)=>a+c.dur,0);
+  const ghDur = o.s.chips.filter(c=>c.kind==='ghost').reduce((a,c)=>a+(c.refDur||0),0);
+  const exScale = exDur ? Math.max(0, exDur-ghDur)/exDur : 0;
+  o.s.chips.forEach(c => {
+    const f = c.flags || [];
+    const key = c.name + '|' + o.label;
+    if (c.kind==='ghost') {
+      (M[key] ||= {id:c.id, name:c.name, where:o.label, occ:[]}).occ.push({o, ms:c.refDur, what:'missed'});
+      return;
+    }
+    let ms = 0, what = null;
+    if (c.kind==='extra') { ms = Math.round(c.dur*exScale); what = 'extra'; }
+    else if (f.includes('slow')) { ms = c.delta; what = 'held long'; }
+    if (f.includes('few')) { what = (what? what+', ':'') + `${c.hits}/${c.expect} hits`; }
+    if (!what) return;
+    const h = (H[key] ||= {id:c.id, name:c.name, where:o.label, cost:0, occ:[]});
+    h.cost += ms; h.occ.push({o, ms, what, c});
+  });
+});
+const habits = Object.values(H).filter(h=>h.cost>=100).sort((a,b)=>b.cost-a.cost);
+const TOPH = habits.slice(0, lostOrder.occ.length ? 5 : 6);
+if (lostOrder.occ.length) { TOPH.push(lostOrder); TOPH.sort((a,b)=>b.cost-a.cost); }
+const misses = Object.values(M).sort((a,b)=>b.occ.length-a.occ.length).slice(0,3);
+function summary(h){
+  const c = {}; h.occ.forEach(x => x.what.split(', ').forEach(w => c[w]=(c[w]||0)+1));
+  return Object.entries(c).map(([w,n]) => n>1? `${w} ×${n}` : w).join(' · ');
+}
+
+// ---- header ----
+const d = P.damage, i30 = Math.min(30, d.mine.length-1);
+const dmg = d.mine[i30]/d.ref[i30]-1;
+const lostSum = secs.reduce((a,o)=>a+(o.lost>0?o.lost:0),0);
+document.getElementById('head').innerHTML = `
+  <div class="stat"><span class="lbl">Behind bench, last swap</span>
+    <span class="big ${lagEnd>500?'bad':lagEnd>150?'warn':'ok'}">${sgn(lagEnd)}<small>s</small></span></div>
+  <div class="stat"><span class="lbl">Damage at 30 s</span><span class="v ${dmg<-.03?'bad':'ok'}">${(dmg*100).toFixed(0)}%</span></div>
+  <div class="stat"><span class="lbl">Worst habit</span><span class="v bad">${TOPH[0] ? '−'+s1(TOPH[0].cost)+' s' : '—'}</span></div>
+  <div class="stat" style="margin-left:auto;text-align:right"><span class="lbl">Pull ${P.log.slice(9,11)}:${P.log.slice(11,13)}</span><span class="v">${P.secs.toFixed(1)} s</span></div>`;
+
+// ---- sparkline: lag at every cast ----
+(function(){
+  const svg = document.getElementById('spark'), W = 612, Hh = 44;
+  svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  const T = casts[casts.length-1].c.t, mx = Math.max(...casts.map(p=>p.lag), 500), mn = Math.min(0, ...casts.map(p=>p.lag));
+  const x = t => 2 + t/T*(W-4), y = v => 4 + (mx - v)/(mx-mn)*(Hh-10);
+  let g = `<line x1="0" x2="${W}" y1="${y(0)}" y2="${y(0)}" stroke="rgba(255,255,255,.18)"/>`;
+  // loop boundaries
+  P.rows.forEach(r => { const st = (r.sword||r.opener||{}).start; if (r.n>0 && st!=null) g += `<line x1="${x(st)}" x2="${x(st)}" y1="0" y2="${Hh}" stroke="rgba(255,255,255,.06)"/><text x="${x(st)+2}" y="${Hh-1}" font-size="8" fill="#898781">${r.n}</text>`; });
+  g += `<rect id="spsel" y="0" height="${Hh}" width="0" fill="rgba(94,162,240,.18)"/>`;
+  g += `<polyline fill="none" stroke="var(--bad)" stroke-width="1.5" points="${casts.map(p=>x(p.c.t)+','+y(p.lag)).join(' ')}"/>`;
+  g += `<text x="${W-2}" y="10" font-size="9" fill="#898781" text-anchor="end">+${s1(mx)} s</text><circle id="spdot" r="3" fill="var(--ink)" cx="-9" cy="-9"/>`;
+  svg.innerHTML = g;
+  svg.onmousemove = e => {
+    const b = svg.getBoundingClientRect(), t = (e.clientX-b.left)/b.width*W;
+    let best = casts[0]; casts.forEach(p => { if (Math.abs(x(p.c.t)-t) < Math.abs(x(best.c.t)-t)) best = p; });
+    const dot = svg.getElementById ? svg.querySelector('#spdot') : null; dot.setAttribute('cx', x(best.c.t)); dot.setAttribute('cy', y(best.lag));
+    showTip(e, `<b>${best.lag>=0?'+':''}${s2(best.lag)} s</b> behind bench<br><span class="mut">${best.c.name} · loop ${best.sec.loop} · ${best.sec.label}</span>`);
+  };
+  svg.onmouseleave = () => { hideTip(); svg.querySelector('#spdot').setAttribute('cx',-9); };
+  svg._x = x; svg._T = T;
+})();
+function sparkSel(o){
+  const svg = document.getElementById('spark'), r = svg.querySelector('#spsel');
+  const ts = o ? o.s.chips.filter(c=>c.t!=null).map(c=>c.t) : [];
+  if (!ts.length) { r.setAttribute('width',0); return; }
+  const a = svg._x(Math.min(...ts)), b = svg._x(Math.max(...o.s.chips.filter(c=>c.t!=null).map(c=>c.t+c.dur)));
+  r.setAttribute('x', a); r.setAttribute('width', Math.max(2,b-a));
+}
+
+// ---- habit rows ----
+const LOOPS = [...new Set(P.rows.map(r=>r.n))].filter(n=>n>0);
+function pips(h, miss){
+  return `<div class="pips">` + LOOPS.map(n => {
+    const oc = h.occ.filter(x=>x.o.loop===n);
+    if (!oc.length) return `<span class="pip"></span>`;
+    const ms = oc.reduce((a,x)=>a+x.ms,0);
+    return `<span class="pip hit ${miss?'':ms<150?'w':''}" data-loop="${n}">${n}</span>`;
+  }).join('') + `</div>`;
+}
+function habitRow(h, i, miss){
+  const el = document.createElement('div'); el.className = 'habit';
+  const n = h.occ.length;
+  const where = h.id==='order' ? h.where : `${h.where} · ${miss ? 'missed' : summary(h)}`;
+  el.innerHTML = `<span class="rank">${i+1}</span>
+    <span class="ic">${h.id==='order' ? '↺' : icon(h.id,h.name)}</span>
+    <div class="hl"><div class="t">${miss?'Missed ':''}${h.name} <span class="mut">×${n}</span></div><div class="s">${where}</div></div>
+    <span class="cost ${miss?'mut':h.cost>500?'bad':'warn'}">${miss? n+'×' : '−'+s1(h.cost)+' s'}</span>${pips(h, miss)}`;
+  el.onmouseenter = () => { document.querySelectorAll('.habit').forEach(x=>x.classList.remove('on')); el.classList.add('on'); highlight(h); showHabit(h, miss); };
+  el.querySelectorAll('.pip.hit').forEach(p => p.onmouseenter = e => {
+    const oc = h.occ.filter(x=>x.o.loop===+p.dataset.loop);
+    showSection(oc[0].o, h); showTip(e, `Loop ${p.dataset.loop} · ${oc[0].o.label}<br><b>${oc.map(x=>x.what+(x.ms&&!miss?' '+(x.ms>0?'+':'')+x.ms+' ms':'')).join(', ')}</b>`);
+  });
+  el.querySelectorAll('.pip.hit').forEach(p => p.onmouseleave = hideTip);
+  return el;
+}
+const hb = document.getElementById('habits');
+TOPH.forEach((h,i) => hb.appendChild(habitRow(h,i,false)));
+const mb = document.getElementById('misses');
+misses.forEach((h,i) => mb.appendChild(habitRow(h,i,true)));
+document.getElementById('habits').parentElement.onmouseleave = () => { highlight(null); document.querySelectorAll('.habit').forEach(x=>x.classList.remove('on')); };
+
+// ---- map ----
+const map = document.getElementById('map');
+const cellOf = new Map();
+function cellBg(o){
+  if (o.lost == null) return '';
+  const v = o.lost;
+  if (v > 50) { const a = Math.min(1, v/700)*.75 + .12; return `background:rgba(255,107,97,${a.toFixed(2)});color:#fff`; }
+  if (v < -50) return `background:rgba(74,194,107,${Math.min(.35, -v/1500+.08).toFixed(2)})`;
+  return '';
+}
+function cellHtml(o){
+  if (!o) return `<div class="cell none"></div>`;
+  if (o.lost == null) return `<div class="cell none" data-i="${secs.indexOf(o)}">${o.end?'end':'merged'}</div>`;
+  const dots = o.probs ? `<span class="n">${'●'.repeat(Math.min(o.probs,4))}${o.probs>4?'+':''}</span>` : '<span></span>';
+  return `<div class="cell" data-i="${secs.indexOf(o)}" style="${cellBg(o)}"><span>${Math.abs(o.lost)<50?'0.0':(o.lost>0?'+':'−')+s1(Math.abs(o.lost))}</span>${dots}</div>`;
+}
+let mh = `<span></span>` + COLS.map(([p,k])=>`<span class="ch">${SEC[p][k]}</span>`).join('') + `<span class="ch">behind</span>`;
+P.rows.forEach(r => {
+  const lastLag = casts.filter(p=>p.sec.loop===r.n).pop();
+  mh += `<span class="rl">${r.n||'Op'}</span>`;
+  if (r.n === 0) {
+    const o = secOf(0,'opener','open');
+    mh += cellHtml(o).replace('class="cell', 'style="grid-column:span 5" class="cell').replace('style="', 'style="grid-column:span 5;');
+  } else COLS.forEach(([p,k]) => mh += cellHtml(secOf(r.n,p,k)));
+  mh += `<span class="lagc">${lastLag ? (lastLag.lag>=0?'+':'')+s1(lastLag.lag) : ''}</span>`;
+});
+map.innerHTML = mh;
+map.querySelectorAll('.cell[data-i]').forEach(el => {
+  const o = secs[+el.dataset.i]; cellOf.set(o, el);
+  el.onmouseenter = e => { showSection(o); };
+});
+function highlight(h){
+  map.querySelectorAll('.cell').forEach(c=>c.classList.remove('hlt'));
+  map.classList.toggle('dim', !!h);
+  if (h) h.occ.forEach(x => { const c = cellOf.get(x.o); if (c) c.classList.add('hlt'); });
+}
+
+// ---- detail ----
+const det = document.getElementById('detail');
+const KEY = `<div class="key"><span><i style="border:2px solid var(--bad)"></i>held long / few hits</span><span><i style="border:2px solid var(--warn)"></i>extra</span><span><i style="border:2px dashed var(--bad)"></i>missed</span><span>hover a cast for detail</span></div>`;
+function showHabit(h, miss){
+  const worst = h.occ.slice().sort((a,b)=>b.ms-a.ms)[0];
+  showSection(worst.o, h);
+}
+function showSection(o, h){
+  map.querySelectorAll('.cell.sel').forEach(c=>c.classList.remove('sel'));
+  const ce = cellOf.get(o); if (ce) ce.classList.add('sel');
+  sparkSel(o);
+  const s = o.s, mine = s.chips.filter(c=>c.kind!=='ghost' && c.kind!=='cut' && c.t!=null);
+  const t0 = mine.length ? Math.min(...mine.map(c=>c.t)) : 0;
+  const myEnd = mine.length ? Math.max(...mine.map(c=>c.t+c.dur)) - t0 : 0;
+  // bench lane: section's reference list laid end to end, missed ones marked
+  const ghostLeft = {}; s.chips.filter(c=>c.kind==='ghost').forEach(c=>ghostLeft[c.name]=(ghostLeft[c.name]||0)+1);
+  let bt = 0; const bench = (s.ref||[]).map(r => { const b = {r, t:bt}; bt += r.dur;
+    if (ghostLeft[r.name]) { ghostLeft[r.name]--; b.miss = true; } return b; });
+  const span = Math.max(myEnd, bt, 500), W = 520, L = 44, px = ms => L + ms/span*W;
+  const lagIn = casts.filter(p=>p.sec===o), l0 = lagIn[0], l1 = lagIn[lagIn.length-1];
+  let html = `<div class="dt"><b>${o.loop? 'Loop '+o.loop+' · ' : ''}${o.label}</b>
+    <span>${o.lost==null?'<span class="mut">no time</span>':`<b class="${o.lost>50?'bad':o.lost<-50?'ok':''}">${o.lost>=0?'+':'−'}${s2(Math.abs(o.lost))} s</b> <span class="mut">${s2(s.time)} vs ${s2(s.refTime)}</span>`}</span></div>`;
+  html += `<div class="occ">${l0 ? `<span>behind bench: <b>${l0.lag>=0?'+':''}${s2(l0.lag)}</b> → <b>${l1.lag>=0?'+':''}${s2(l1.lag)} s</b></span>` : ''}${h ? `<span class="mut">${h.id==='order'?h.name:h.name+' · '+h.where}: ${h.occ.map(x=>'L'+x.o.loop+(x.ms&&h.cost!=null&&x.what!=='missed'?' +'+x.ms:'' )).join('  ')}</span>`:''}</div>`;
+  html += `<div class="lane"><span class="lb">You</span>` + mine.map((c,i) => {
+    const f = c.flags||[], cls = c.kind==='extra'?'extra':f.includes('slow')?'slow':f.includes('few')?'few':'';
+    return `<div class="chip ${cls}" data-c="${s.chips.indexOf(c)}" style="left:${px(c.t-t0)}px;width:${Math.max(14,c.dur/span*W-1)}px">${icon(c.id,c.name)}</div>`;
+  }).join('') + `</div>`;
+  html += `<div class="lane"><span class="lb">Bench</span>` + bench.map((b,i) =>
+    `<div class="chip ${b.miss?'ghost':''}" data-b="${i}" style="left:${px(b.t)}px;width:${Math.max(14,b.r.dur/span*W-1)}px">${icon(b.r.id,b.r.name)}</div>`).join('') + `</div>`;
+  html += KEY;
+  det.innerHTML = html;
+  det.querySelectorAll('.chip[data-c]').forEach(el => {
+    const c = s.chips[+el.dataset.c];
+    el.onmousemove = e => showTip(e, castTip(c));
+    el.onmouseleave = hideTip;
+  });
+  det.querySelectorAll('.chip[data-b]').forEach(el => {
+    const b = bench[+el.dataset.b];
+    el.onmousemove = e => showTip(e, `<b>${b.r.name}</b> <span class="mut">bench</span><br>${b.r.dur} ms${b.miss?'<br><span class="bad">you skipped it</span>':''}`);
+    el.onmouseleave = hideTip;
+  });
+}
+function castTip(c){
+  const f = c.flags||[];
+  const rows = [];
+  rows.push(['Cast', `${c.dur} ms` + (c.refDur!=null ? ` <span class="mut">bench ${c.refDur}</span>` : '')]);
+  if (c.delta!=null && c.kind!=='extra') rows.push(['Diff', `<span class="${c.delta>50?'bad':c.delta<-50?'ok':''}">${c.delta>0?'+':''}${Math.round(c.delta)} ms</span>`]);
+  if (c.expect!=null) rows.push(['Hits', `<span class="${c.hits<c.expect?'bad':''}">${c.hits} / ${c.expect}</span>`]);
+  rows.push(['Ended', c.stop]);
+  const lp = casts.find(p=>p.c===c); if (lp) { const l = lp.lag; rows.push(['Behind', `<b>${l>=0?'+':''}${s2(l)} s</b> at this cast`]); }
+  let flag = c.kind==='extra' ? '<span class="warn">extra cast, not in the bench</span>' :
+    f.includes('slow') ? '<span class="bad">held longer than the bench</span>' :
+    f.includes('few') ? '<span class="bad">fewer hits than a full cast</span>' :
+    f.includes('nobuff') ? '<span class="bad">buff not applied</span>' : '';
+  return `<b>${c.name}</b>${flag?'<br>'+flag:''}<table>${rows.map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table>`;
+}
+// default: worst section
+showSection(secs.filter(o=>o.lost!=null).sort((a,b)=>b.lost-a.lost)[0]);
+</script>
+</body>
+</html>

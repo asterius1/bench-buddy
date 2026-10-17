@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bench Buddy</title>
+<style>
+/* The template's page: your casts against the bench, one row each. Served by core/serve.py at
+   /<ROUTE>; it reads /api/<ROUTE>/latest, /history and /compare?log=. Dark colours, system font. */
+:root {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #fff; --ink2: #c3c2b7; --muted: #898781;
+  --border: rgba(255,255,255,.10); --accent: #5ea2f0; --bad: #ff6b61; --warn: #f0a53a; --ok: #4ac26b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.35 system-ui, sans-serif; padding: 12px 20px; }
+.panel { max-width: 640px; }
+.head { display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; margin-bottom: 10px; }
+.head h1 { font-size: 18px; margin: 0; font-weight: 600; }
+.head .st { font-size: 12px; color: var(--ink2); }
+.head .st b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
+select { font: inherit; font-size: 12px; background: #222; color: var(--ink2); border: 1px solid var(--border); border-radius: 4px; }
+table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+td, th { padding: 2px 6px; text-align: left; white-space: nowrap; }
+th { color: var(--muted); font-weight: 400; font-size: 12px; border-bottom: 1px solid var(--border); }
+tr.missed td { color: var(--muted); text-decoration: line-through; }
+tr.extra td.name { color: var(--warn); }
+td.num { text-align: right; }
+.icon { width: 20px; height: 20px; vertical-align: middle; margin-right: 6px; border-radius: 3px; }
+.ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+.muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="head">
+    <h1 id="name">Bench Buddy</h1>
+    <select id="pick"></select>
+    <span class="st" id="sum"></span>
+  </div>
+  <table>
+    <thead><tr><th>#</th><th>Skill</th><th class="num">You</th><th class="num">Bench</th><th class="num">Behind</th></tr></thead>
+    <tbody id="rows"><tr><td colspan="5" class="muted">waiting for a log of this build…</td></tr></tbody>
+  </table>
+</div>
+<script>
+const ROUTE = location.pathname.replace(/^\/|\/$/g, "");
+const API = `/api/${ROUTE}`;
+const get = async p => (await fetch(p, { cache: "no-store" })).json();
+const sec = ms => ms == null ? "" : (ms / 1000).toFixed(2);
+const sgn = ms => ms == null ? "" : (ms > 0 ? "+" : ms < 0 ? "−" : "±") + Math.abs(ms / 1000).toFixed(2);
+let current = null, follow = true, ver = null, count = -1;
+
+function draw(d) {
+  document.getElementById("name").textContent = d.name;
+  document.title = d.name;
+  const behind = d.behind == null ? "" : ` · <b>${sgn(d.behind)} s</b> behind the bench (median)`;
+  document.getElementById("sum").innerHTML =
+    `<b>${d.secs.toFixed(1)} s</b> · ${d.casts} casts · ${d.missed} missed · ${d.extra} extra${behind}`;
+  let n = 0;
+  document.getElementById("rows").innerHTML = d.rows.map(x => {
+    const c = x.you || x.bench;
+    const icon = d.icons[c.id] ? `<img class="icon" src="${d.icons[c.id]}" alt="">` : "";
+    const b = x.behind, tone = b == null ? "" : b <= 50 ? "ok" : b <= 300 ? "warn" : "bad";
+    const num = x.you ? ++n : "";
+    return `<tr class="${x.kind}"><td class="muted">${num}</td><td class="name">${icon}${c.name}${x.kind === "same" ? "" : ` <span class="muted">(${x.kind})</span>`}</td>
+      <td class="num">${x.you ? sec(x.you.t) : ""}</td><td class="num muted">${x.bench ? sec(x.bench.t) : ""}</td>
+      <td class="num ${tone}">${sgn(b)}</td></tr>`;
+  }).join("");
+}
+
+async function load(log) {
+  current = log;
+  document.getElementById("pick").value = log;
+  draw(await get(`${API}/compare?log=${encodeURIComponent(log)}`));
+}
+
+async function tick() {
+  try {
+    const v = (await get("/api/version")).v;           // the page reloads itself when the code changes
+    if (ver && v !== ver) { location.reload(); return; }
+    ver = v;
+    const l = await get(`${API}/latest`);
+    if (l.count !== count) {
+      count = l.count;
+      const hist = await get(`${API}/history`);
+      document.getElementById("pick").innerHTML = hist.slice().reverse().map(h => `<option>${h.log}</option>`).join("");
+      if (current) document.getElementById("pick").value = current;
+    }
+    if (follow && l.latest && l.latest !== current) await load(l.latest);
+  } catch (e) {}
+}
+document.getElementById("pick").onchange = e => {
+  follow = e.target.selectedIndex === 0;     // the newest pull is first: picking it follows new pulls again
+  load(e.target.value);
+};
+tick();
+setInterval(tick, 3000);
+</script>
+</body>
+</html>

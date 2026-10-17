@@ -1,0 +1,15 @@
+[package]
+name = "bench_buddy"
+description = "Bench Buddy: a Nexus addon that compares your golem rotation with a benchmark, drawn from the local checker"
+edition = "2021"
+version = "0.1.0"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+nexus = { git = "https://github.com/zerthox/nexus-rs", rev = "51bff5ab38ad11332316448b452ece1b773018cd", features = ["arc"] }
+
+[profile.release]
+opt-level = 2

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rotation Heat Grid</title>
+<style>
+:root{
+  --page:#0d0d0d; --surface:#1a1a19; --ink:#fff; --ink2:#c3c2b7; --muted:#898781;
+  --border:rgba(255,255,255,.10); --accent:#5ea2f0;
+  --bad:#ff6b61; --warn:#f0a53a; --ok:#4ac26b;
+  --panel:rgba(20,20,19,.86); --tip:#20201f; --game:#3a3b3d; --game2:#33352f;
+  --icon:20px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font:12px/1.3 system-ui,sans-serif}
+.stage{position:relative;width:1920px;height:1080px;background:var(--game);overflow:hidden}
+.stage .floor{position:absolute;left:0;right:0;bottom:0;height:380px;background:var(--game2)}
+.stage .char{position:absolute;left:820px;top:520px;width:70px;height:170px;border-radius:30px 30px 8px 8px;background:#2a2b2c}
+.stage .golem{position:absolute;left:1040px;top:430px;width:170px;height:260px;border-radius:40px 40px 10px 10px;background:#2d2e30}
+.stage .skillbar{position:absolute;left:640px;bottom:22px;width:640px;height:56px;border-radius:6px;background:#262728}
+
+.panel{position:absolute;left:20px;top:40px;width:640px;height:1000px;background:var(--panel);
+  border:1px solid var(--border);border-radius:10px;padding:12px 14px;overflow:hidden}
+.head{display:flex;align-items:baseline;gap:10px;margin-bottom:6px}
+.head .big{font-size:20px;font-weight:600}
+.head .end{margin-left:auto;font-size:13px;color:var(--ink2)}
+.head .end b{font-size:18px}
+.sum{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.pill{display:flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;background:var(--surface);color:var(--ink2)}
+.pill b{color:var(--ink)}
+.btn{margin-left:auto;padding:2px 10px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink2);font:inherit;cursor:pointer}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+
+.grid{display:grid;column-gap:8px;row-gap:0;align-items:start}
+.colh{font-size:10px;color:var(--muted);line-height:1.2;padding-bottom:3px;border-bottom:1px solid var(--border);margin-bottom:3px;white-space:nowrap}
+.colh span{display:block}
+.lbl{font-size:13px;font-weight:600;color:var(--ink2);text-align:right;padding-top:2px}
+.lbl small{display:block;font-size:9px;font-weight:400;color:var(--muted)}
+.loopsep{grid-column:1/-1;height:5px;border-bottom:1px solid var(--border);margin-bottom:4px}
+
+.sec{padding:1px 2px 0;border-radius:4px;cursor:default;min-height:33px}
+.sec:hover{background:rgba(255,255,255,.06)}
+.icons{display:flex;gap:1px;height:var(--icon)}
+.d{font-size:10px;color:var(--muted);height:11px;line-height:11px;margin-top:1px}
+.d.bad{color:var(--bad)} .d.warn{color:var(--warn)} .d.ok{color:var(--ok)}
+.d .bar{display:inline-block;height:3px;vertical-align:middle;margin-left:3px;border-radius:2px;background:currentColor}
+
+.ch{position:relative;width:var(--icon);height:var(--icon);flex:none;border-radius:3px}
+.ch img,.ch .txt{width:100%;height:100%;border-radius:3px;display:block}
+.ch .txt{background:#2b2b2a;color:var(--ink2);font-size:8px;line-height:var(--icon);text-align:center;overflow:hidden}
+.ch.ok img,.ch.ok .txt{opacity:.30;filter:grayscale(.7)}
+.ch.slow img,.ch.slow .txt{opacity:1;filter:none}
+.ch.slow::after{content:"";position:absolute;inset:-1px;border:2px solid var(--bad);border-radius:4px;background:rgba(255,107,97,.25)}
+.ch.slow.big::after{border-width:3px}
+.ch.extra img,.ch.extra .txt{opacity:1;filter:none}
+.ch.extra::after{content:"";position:absolute;inset:-1px;border:2px solid var(--warn);border-radius:4px}
+.ch.ghost{border:1.5px dashed var(--bad);background:rgba(0,0,0,.45)}
+.ch.ghost img,.ch.ghost .txt{opacity:.18;filter:grayscale(1)}
+.ch .dot{position:absolute;right:-2px;bottom:-2px;width:7px;height:7px;border-radius:50%;background:var(--bad);border:1px solid #000;z-index:2}
+.ch .dot.nb{background:var(--warn);left:-2px;right:auto}
+.ch:hover{outline:1px solid var(--ink);outline-offset:1px;z-index:3}
+.bench .ch img,.bench .ch .txt{opacity:.75;filter:none}
+
+.loop{grid-row:span 2;padding:2px 0 0 6px;border-left:1px solid var(--border);align-self:stretch;cursor:default}
+.loop:hover{background:rgba(255,255,255,.04)}
+.loop .lost{font-size:15px;font-weight:600}
+.loop .lost.bad{color:var(--bad)} .loop .lost.warn{color:var(--warn)} .loop .lost.ok{color:var(--ok)}
+.loop .k{font-size:10px;color:var(--muted)}
+.lagbar{height:4px;border-radius:2px;background:var(--surface);margin:3px 0 1px;position:relative}
+.lagbar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--bad)}
+.loop .lag{font-size:11px;color:var(--ink2)}
+
+.legend{position:absolute;left:14px;right:14px;bottom:10px;display:flex;gap:12px;align-items:center;font-size:10px;color:var(--muted)}
+.legend .ch{--icon:12px}
+.legend span{display:flex;align-items:center;gap:4px}
+
+.tip{position:absolute;z-index:20;display:none;max-width:400px;background:var(--tip);border:1px solid rgba(255,255,255,.18);
+  border-radius:8px;padding:8px 10px;pointer-events:none;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+.tip h4{margin:0 0 4px;font-size:13px;display:flex;align-items:center;gap:6px}
+.tip h4 img{width:22px;height:22px;border-radius:3px}
+.tip table{border-collapse:collapse}
+.tip td{padding:1px 10px 1px 0;color:var(--ink2);white-space:nowrap}
+.tip td:first-child{color:var(--muted)}
+.tip .bad{color:var(--bad)} .tip .warn{color:var(--warn)} .tip .ok{color:var(--ok)}
+.tip .row{display:flex;align-items:center;gap:6px;margin:3px 0}
+.tip .row > span{width:40px;color:var(--muted);font-size:10px}
+.tip .icons{--icon:18px}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="floor"></div><div class="skillbar"></div><div class="char"></div><div class="golem"></div>
+  <div class="panel" id="panel">
+    <div class="head">
+      <span class="big" id="hTime"></span><span style="color:var(--muted)">Golem vs bench</span>
+      <span class="end" id="hEnd"></span>
+    </div>
+    <div class="sum" id="sum"></div>
+    <div class="grid" id="grid"></div>
+    <div class="legend">
+      <span><i class="ch ok" style="background:#666"></i>on time</span>
+      <span><i class="ch slow" style="background:#666"></i>slow</span>
+      <span><i class="ch ghost"></i>missed</span>
+      <span><i class="ch extra" style="background:#666"></i>extra</span>
+      <span><i class="ch" style="background:#666"><i class="dot"></i></i>few hits</span>
+      <span style="margin-left:auto">hover for detail · B = bench</span>
+    </div>
+    <div class="tip" id="tip"></div>
+  </div>
+</div>
+<script src="data.js"></script>
+<script>
+const P = window.PULL, ICONS = window.ICONS || {};
+const TEXT = {23285:'Stow', 23275:'Dodge'};
+const STOP = {'done':'full cast','next skill':'cut by next skill','cancel':'cancelled','transition':'weapon swap','cc':'CC','stow':'stowed','dodge':'dodged'};
+const SEC = {sword:{a:'Sword start',b:'Flurry part'}, bow:{open:'Longbow open',fill:'Fillers',close:'Close'}, opener:{open:'Opener'}};
+const COL = {opener:{open:0}, sword:{a:0,b:1}, bow:{open:0,fill:1,close:2}};
+let bench = false;
+
+const s2 = ms => ms==null ? '—' : (ms/1000).toFixed(2);
+const sgn = ms => ms==null ? '—' : (ms>0?'+':ms<0?'−':'±') + Math.abs(ms/1000).toFixed(2);
+const sgnMs = ms => (ms>0?'+':ms<0?'−':'±') + Math.abs(Math.round(ms)) + ' ms';
+const cls = ms => ms==null ? '' : ms>100 ? 'bad' : ms>30 ? 'warn' : ms< -30 ? 'ok' : '';
+
+function iconHTML(id, name){
+  const u = ICONS[id];
+  return u ? `<img src="${u}" alt="">` : `<span class="txt">${TEXT[id] || name.split(/\s+/).map(w=>w[0]).join('').slice(0,3)}</span>`;
+}
+const visible = s => s.chips.filter(c => c.kind!=='cut');
+
+// running lag: PULL.lag has one value per weapon swap, in order sword1, bow1, sword2 ...
+const parts = []; // {row, part, sec obj}
+P.rows.forEach(r => ['opener','sword','bow'].forEach(p => { if (r[p]) parts.push({r, p, x:r[p]}); }));
+let li = 0;
+parts.forEach(o => { if (o.p!=='opener') o.lag = P.lag[li++]; });
+const lagMax = Math.max(...P.lag.map(Math.abs), 1);
+const chipLag = (r, c) => (c.ref && r.n===r.refN) ? c.t - c.ref.t : null;
+
+// slots per column, so all loops line up
+const slots = [0,0,0];
+parts.forEach(o => Object.entries(o.x.sections).forEach(([k,s]) => {
+  const i = COL[o.p][k];
+  slots[i] = Math.max(slots[i], visible(s).length, (s.ref||[]).length);
+}));
+const avail = 640 - 28 - 26 - 92 - 4*8 - 3*4;
+const isz = Math.min(22, Math.floor(avail / (slots[0]+slots[1]+slots[2])) - 1);
+document.documentElement.style.setProperty('--icon', isz + 'px');
+const colW = n => n*(isz+1) + 4;
+
+const grid = document.getElementById('grid');
+grid.style.gridTemplateColumns = `26px ${colW(slots[0])}px ${colW(slots[1])}px ${colW(slots[2])}px 1fr`;
+
+const store = []; // for hover lookup
+function chipHTML(r, c, part, sec){
+  const idx = store.push({type:'chip', r, c, part, sec}) - 1;
+  let k = c.kind, extra = '';
+  const f = c.flags || [];
+  if (k==='ok' && f.includes('slow')) k = 'ok slow' + (c.delta>150 ? ' big' : '');
+  if (k==='extra' && f.includes('slow')) k += ' slow';
+  if (f.includes('few')) extra += '<i class="dot"></i>';
+  if (f.includes('nobuff')) extra += '<i class="dot nb"></i>';
+  return `<div class="ch ${k}" data-i="${idx}">${iconHTML(c.id, c.name)}${extra}</div>`;
+}
+function benchHTML(list){
+  return list.map(c => `<div class="ch">${iconHTML(c.id, c.name)}</div>`).join('');
+}
+function secHTML(o, k, s){
+  const i = COL[o.p][k];
+  const idx = store.push({type:'sec', r:o.r, part:o.p, k, s}) - 1;
+  const d = (s.time!=null) ? s.time - s.refTime : null;
+  const icons = bench ? benchHTML(s.ref||[]) : visible(s).map(c => chipHTML(o.r, c, o.p, k)).join('');
+  const bar = d!=null && d>30 ? `<i class="bar" style="width:${Math.min(40, d/10)}px"></i>` : '';
+  const dtxt = bench ? `<span>${s2(s.refTime)}</span>` : (d==null ? '<span class="bad">incomplete</span>' : sgn(d) + bar);
+  return `<div class="sec${bench?' bench':''}" data-i="${idx}" style="grid-column:${i+2}">
+    <div class="icons">${icons}</div><div class="d ${bench?'':cls(d)}">${dtxt}</div></div>`;
+}
+
+function render(){
+  store.length = 0;
+  let h = `<div class="colh"></div>
+    <div class="colh"><span>Sword start</span><span>LB open</span></div>
+    <div class="colh"><span>Flurry part</span><span>Fillers</span></div>
+    <div class="colh"><span>&nbsp;</span><span>Close</span></div>
+    <div class="colh"><span>Lost · lag</span><span>&nbsp;</span></div>`;
+  let row = 2;
+  P.rows.forEach((r, ri) => {
+    const ps = parts.filter(o => o.r===r);
+    if (ri>0) { h += `<div class="loopsep" style="grid-row:${row}"></div>`; row++; }
+    const first = row;
+    ps.forEach(o => {
+      const lab = o.p==='opener' ? 'Op' : (o.p==='sword' ? r.n : '');
+      const sub = o.p==='sword' ? 'sw' : o.p==='bow' ? 'lb' : '';
+      h += `<div class="lbl" style="grid-row:${row};grid-column:1">${lab}<small>${sub}</small></div>`;
+      Object.entries(o.x.sections).forEach(([k,s]) => { h += secHTML(o, k, s).replace('style="', `style="grid-row:${row};`); });
+      row++;
+    });
+    // loop column
+    const lost = ps.reduce((a,o) => a + ((o.x.len!=null) ? o.x.len - o.x.refLen : 0), 0);
+    const incomplete = ps.some(o => o.x.len==null);
+    const lastLag = [...ps].reverse().find(o => o.lag!=null);
+    const lagv = lastLag ? lastLag.lag : null;
+    const idx = store.push({type:'loop', r, ps, lost, lagv}) - 1;
+    h += `<div class="loop" data-i="${idx}" style="grid-row:${first} / span ${ps.length};grid-column:5">
+      <div class="lost ${cls(lost)}">${incomplete && lost===0 ? '—' : sgn(lost)}</div>
+      ${lagv!=null ? `<div class="lagbar"><i style="width:${Math.max(2, 100*Math.abs(lagv)/lagMax)}%"></i></div><div class="lag">lag ${sgn(lagv)}</div>` : `<div class="k">${incomplete?'pull ended':''}</div>`}
+    </div>`;
+  });
+  grid.innerHTML = h;
+}
+
+function summary(){
+  let slow=0, missed=0, extra=0, few=0;
+  parts.forEach(o => Object.values(o.x.sections).forEach(s => s.chips.forEach(c => {
+    const f = c.flags||[];
+    if (c.kind==='ghost') missed++;
+    if (c.kind==='extra') extra++;
+    if (f.includes('slow')) slow++;
+    if (f.includes('few')) few++;
+  })));
+  document.getElementById('hTime').textContent = P.secs.toFixed(1) + ' s';
+  const end = P.lag[P.lag.length-1];
+  document.getElementById('hEnd').innerHTML = `behind bench <b class="${cls(end)}" style="color:${end>100?'var(--bad)':''}">${sgn(end)} s</b>`;
+  document.getElementById('sum').innerHTML =
+    `<span class="pill"><i class="ch slow" style="--icon:10px;background:#666"></i><b>${slow}</b> slow</span>
+     <span class="pill"><i class="ch ghost" style="--icon:10px"></i><b>${missed}</b> missed</span>
+     <span class="pill"><i class="ch extra" style="--icon:10px;background:#666"></i><b>${extra}</b> extra</span>
+     <span class="pill"><i class="dot" style="width:7px;height:7px;border-radius:50%;background:var(--bad)"></i><b>${few}</b> few hits</span>
+     <button class="btn" id="bBtn">Bench</button>`;
+  document.getElementById('bBtn').onclick = toggleBench;
+}
+function toggleBench(){ bench = !bench; render(); const b=document.getElementById('bBtn'); b.classList.toggle('on', bench); b.textContent = bench ? 'Bench (on)' : 'Bench'; }
+document.addEventListener('keydown', e => { if (e.key==='b' || e.key==='B') toggleBench(); });
+
+// ---- hover
+const tip = document.getElementById('tip'), panel = document.getElementById('panel');
+function tipChip(o){
+  const c = o.c, r = o.r, name = SEC[o.part][o.sec];
+  const where = (o.part==='opener' ? 'Opener' : 'Loop ' + r.n) + ' · ' + name;
+  if (c.kind==='ghost') return `<h4>${iconHTML(c.id,c.name)}${c.name} <span class="bad">missed</span></h4>
+    <table><tr><td>Where</td><td>${where}</td></tr><tr><td>Bench</td><td>cast it, ${c.refDur} ms</td></tr></table>`;
+  const f = c.flags||[], lag = chipLag(r, c);
+  let st = c.kind==='extra' ? '<span class="warn">extra</span>' : f.includes('slow') ? '<span class="bad">slow</span>' : '';
+  return `<h4>${iconHTML(c.id,c.name)}${c.name} ${st}</h4><table>
+    <tr><td>Where</td><td>${where}</td></tr>
+    <tr><td>Cast</td><td>${c.dur} ms${c.refDur!=null ? ` · bench ${c.refDur} ms · <span class="${cls(c.delta)}">${sgnMs(c.delta)}</span>` : ''}</td></tr>
+    <tr><td>Hits</td><td class="${f.includes('few')?'bad':''}">${c.hits}${c.expect!=null ? ' of ' + c.expect : ''}</td></tr>
+    <tr><td>Ended</td><td>${STOP[c.stop] || c.stop || '—'}</td></tr>
+    ${f.includes('nobuff') ? '<tr><td>Buff</td><td class="warn">ended before the buff applied</td></tr>' : ''}
+    ${c.ref ? '' : '<tr><td>Bench</td><td>no matching cast</td></tr>'}
+    <tr><td>Rotation lag</td><td class="${cls(lag)}">${lag!=null ? sgn(lag) + ' s behind bench here' : '—'}</td></tr></table>`;
+}
+function tipSec(o){
+  const s = o.s, d = s.time!=null ? s.time - s.refTime : null;
+  const vis = visible(s), withRef = vis.filter(c => chipLag(o.r,c)!=null);
+  const l0 = withRef.length ? chipLag(o.r, withRef[0]) : null, l1 = withRef.length ? chipLag(o.r, withRef.at(-1)) : null;
+  const you = vis.map(c => chipHTML(o.r, c, o.part, o.k)).join('');
+  return `<h4>${o.part==='opener'?'Opener':'Loop '+o.r.n} · ${SEC[o.part][o.k]}</h4><table>
+    <tr><td>Time</td><td>${s2(s.time)} s · bench ${s2(s.refTime)} s · <span class="${cls(d)}">${sgn(d)}</span></td></tr>
+    <tr><td>Rotation lag</td><td>${l0!=null ? `${sgn(l0)} → <span class="${cls(l1)}">${sgn(l1)}</span> s` : '—'}</td></tr></table>
+    <div class="row"><span>You</span><div class="icons">${you}</div></div>
+    <div class="row"><span>Bench</span><div class="icons bench">${benchHTML(s.ref||[])}</div></div>`;
+}
+function tipLoop(o){
+  const rows = o.ps.map(p => {
+    const d = p.x.len!=null ? p.x.len - p.x.refLen : null;
+    const nm = p.p==='opener' ? 'Opener' : p.p==='sword' ? 'Sword visit' : 'Longbow visit';
+    return `<tr><td>${nm}</td><td>${s2(p.x.len)} s · bench ${s2(p.x.refLen)}</td><td class="${cls(d)}">${sgn(d)}</td><td>${p.lag!=null ? 'lag at swap ' + sgn(p.lag) : ''}</td></tr>`;
+  }).join('');
+  const note = o.r.n!==o.r.refN ? `<div style="color:var(--muted);margin-top:4px">compared with bench loop ${o.r.refN}</div>` : '';
+  return `<h4>${o.r.n===0?'Opener':'Loop '+o.r.n}: <span class="${cls(o.lost)}">${sgn(o.lost)} s</span></h4><table>${rows}</table>${note}`;
+}
+panel.addEventListener('mousemove', e => {
+  const t = e.target.closest('[data-i]');
+  if (!t || tip.contains(t)) { tip.style.display = 'none'; return; }
+  const o = store[+t.dataset.i];
+  if (!o) { tip.style.display='none'; return; }
+  const html = o.type==='chip' ? tipChip(o) : o.type==='sec' ? tipSec(o) : tipLoop(o);
+  if (tip._html !== html) { tip.innerHTML = html; tip._html = html; }
+  tip.style.display = 'block';
+  const pr = panel.getBoundingClientRect(), w = tip.offsetWidth, hh = tip.offsetHeight;
+  let x = e.clientX - pr.left + 14, y = e.clientY - pr.top + 16;
+  if (x + w > pr.width - 6) x = Math.max(6, e.clientX - pr.left - w - 14);
+  if (y + hh > pr.height - 6) y = e.clientY - pr.top - hh - 12;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+});
+panel.addEventListener('mouseleave', () => tip.style.display = 'none');
+
+summary(); render();
+</script>
+</body>
+</html>

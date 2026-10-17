@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrapper Splits</title>
+<style>
+:root {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #fff; --ink2: #c3c2b7; --muted: #898781;
+  --border: rgba(255,255,255,.10); --accent: #5ea2f0;
+  --bad: #ff6b61; --warn: #f0a53a; --ok: #4ac26b; --gold: #e8c34a;
+  --panel: rgba(34,35,38,.94); --tip: rgba(26,26,25,.97);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sans-serif; overflow: hidden; }
+.panel { position: absolute; left: 20px; top: 20px; bottom: 20px; width: 640px; max-height: 1040px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 10px; display: flex; flex-direction: column; }
+.head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 4px 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.head .ttl { color: var(--muted); font-size: 12px; display: flex; gap: 6px; align-items: center; }
+.head select { font: inherit; font-size: 12px; background: #222; color: var(--ink2); border: 1px solid var(--border); border-radius: 4px; }
+.head .big { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.head .big small { font-size: 14px; font-weight: 400; color: var(--muted); }
+.head .lagbig { text-align: right; cursor: default; }
+.head .lagbig b { font-size: 26px; font-variant-numeric: tabular-nums; }
+.head .lagbig span { display: block; color: var(--muted); font-size: 11px; }
+.counts { grid-column: 1 / -1; display: flex; gap: 14px; color: var(--ink2); font-size: 12px; align-items: center; flex-wrap: wrap; }
+.counts .c { cursor: default; }
+.counts b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.cols { display: grid; grid-template-columns: 44px 1fr 54px 58px; gap: 6px; color: var(--muted); font-size: 11px; padding: 6px 0 3px; }
+.cols div:nth-child(n+3) { text-align: right; }
+.splits { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2px; overflow-y: auto; }
+.cyc { display: flex; gap: 10px; align-items: center; font-size: 11px; color: var(--ink2); padding: 4px 4px 1px; margin-top: 4px;
+  border-top: 1px solid var(--border); cursor: default; white-space: nowrap; overflow: hidden; flex: none; }
+.cyc:first-child { margin-top: 0; border-top: 0; }
+.cyc:hover { background: rgba(255,255,255,.04); }
+.cyc .t { font-weight: 600; color: var(--ink); font-size: 12px; }
+.cyc b { font-variant-numeric: tabular-nums; }
+.pill { padding: 0 6px; border-radius: 8px; font-variant-numeric: tabular-nums; }
+.split { display: grid; grid-template-columns: 44px 1fr 54px 58px; gap: 6px; flex: 1 1 0; min-height: 30px; max-height: 48px; align-items: stretch; border-radius: 4px; }
+.split:hover { background: rgba(255,255,255,.04); }
+.lbl { display: flex; flex-direction: column; justify-content: center; padding-left: 4px; cursor: default; }
+.lbl b { font-size: 14px; font-weight: 600; }
+.lbl span { color: var(--muted); font-size: 10px; }
+.secs { display: flex; gap: 3px; min-width: 0; }
+.sec { min-width: 0; border-radius: 4px; padding: 1px 5px; background: #3a3c40; border: 2px solid transparent; display: flex; flex-direction: column; gap: 1px; cursor: default; }
+.sec.core { flex: 0 0 82px; }
+.sec.fill, .sec.burst, .sec.pre { flex: 1; }
+.sec:hover { outline: 1px solid var(--accent); }
+.sec.err { border-color: var(--bad); }
+.sec.xtra { border-color: var(--warn); }
+.sec .top { display: flex; justify-content: space-between; gap: 4px; font-size: 11px; line-height: 12px; color: var(--ink2); white-space: nowrap; }
+.sec .top b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+.ics { --s: 20px; display: flex; gap: 2px; height: 21px; align-items: center; overflow: hidden; }
+.ic { position: relative; width: var(--s); height: var(--s); flex: none; border-radius: 3px; background: #000; }
+.ic img, .ic .tx { width: var(--s); height: var(--s); border-radius: 3px; display: block; }
+.ic .tx { background: #333; color: var(--ink2); font-size: 8px; display: flex; align-items: center; justify-content: center; }
+.ic.ghost img, .ic.ghost .tx { opacity: .35; filter: grayscale(1); }
+.ic.ghost::after { content: ""; position: absolute; inset: -1px; border: 1.5px dashed var(--bad); border-radius: 4px; }
+.ic.extra::after { content: "+"; position: absolute; right: -3px; top: -5px; font-size: 11px; font-weight: 700; color: var(--ink); text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.ic.slow { box-shadow: 0 3px 0 var(--warn); }
+.ic.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); border: 1px solid #000; z-index: 1; }
+.ic.fervor { box-shadow: 0 -3px 0 -1px #d0473a; }
+.ic.slow.fervor { box-shadow: 0 3px 0 var(--warn), 0 -3px 0 -1px #d0473a; }
+.ic:hover { outline: 1px solid var(--ink); }
+.num { text-align: right; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; justify-content: center; padding-right: 4px; cursor: default; }
+.num b { font-size: 14px; font-weight: 600; }
+.num span { font-size: 10px; color: var(--muted); }
+.g { color: var(--ok); } .r { color: var(--bad); } .y { color: var(--warn); } .m { color: var(--muted); }
+.foot { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); padding-top: 7px; border-top: 1px solid var(--border); align-items: center; }
+.foot .k { display: flex; align-items: center; gap: 5px; }
+.key { width: 14px; height: 14px; border-radius: 3px; background: #555; position: relative; }
+.key.ghost { background: transparent; border: 1.5px dashed var(--bad); }
+.key.slow { box-shadow: 0 3px 0 var(--warn); }
+.key.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
+.key.extra::after { content: "+"; position: absolute; right: -3px; top: -6px; font-weight: 700; color: var(--ink); font-size: 11px; }
+.key.fervor { box-shadow: 0 -3px 0 -1px #d0473a; }
+.tempo { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, rgb(24,120,58), #3a3c40, rgb(168,32,28)); }
+.tip { position: absolute; left: 672px; width: 460px; background: var(--tip); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: none; z-index: 10; font-size: 12px; }
+.tip h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tip h3 img { width: 28px; height: 28px; border-radius: 4px; }
+.tip .sub { color: var(--muted); margin: -3px 0 7px; }
+.tip table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.tip td, .tip th { padding: 2px 4px; text-align: right; white-space: nowrap; }
+.tip th { color: var(--muted); font-weight: 400; font-size: 11px; }
+.tip td:first-child, .tip th:first-child { text-align: left; }
+.tip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.tip dt { color: var(--muted); } .tip dd { margin: 0; font-variant-numeric: tabular-nums; }
+.tip .nm { display: flex; align-items: center; gap: 5px; }
+.tip .nm img, .tip .nm .tx { width: 16px; height: 16px; border-radius: 2px; flex: none; }
+.pv { display: flex; gap: 2px; margin: 2px 0 6px; flex-wrap: wrap; }
+.pv .col { width: 26px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pv .col .b, .pv .col .yv { width: 24px; height: 24px; border-radius: 3px; position: relative; }
+.pv .col img, .pv .col .tx { width: 24px; height: 24px; border-radius: 3px; display: block; }
+.pv .col .b { opacity: .7; }
+.pv .col .yv.ghost { outline: 1.5px dashed var(--bad); outline-offset: -2px; }
+.pv .col .yv.extra { box-shadow: 0 0 0 1.5px var(--warn); }
+.pv .col .yv.slow { box-shadow: 0 0 0 2px var(--warn); }
+.pv .col .d { font-size: 9px; font-variant-numeric: tabular-nums; height: 11px; line-height: 11px; }
+.pv .lab { width: 34px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: var(--muted); }
+.pv .lab span { height: 24px; display: flex; align-items: center; }
+.empty { color: var(--muted); padding: 20px 0; }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; font-size: 13px; }
+.tabs a { color: var(--ink2); text-decoration: none; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border); }
+.tabs a.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="tabs"><a href="/scrapper">Your pull</a><a href="/scrapper/bench">Bench rotation</a><a class="on" href="/scrapper/splits">Splits</a></div>
+  <div class="head" id="head"></div>
+  <div class="cols"><div>Mini</div><div>Electro-whirl + Shrapnel · filler · bomb burst</div><div>Mini</div><div>Behind</div></div>
+  <div class="splits" id="splits"><p class="empty">Waiting for a scrapper golem log…</p></div>
+  <div class="foot">
+    <span class="k"><span class="key slow"></span>next cast late</span>
+    <span class="k"><span class="key cdlate"></span>20 s skill late</span>
+    <span class="k"><span class="key ghost"></span>missed</span>
+    <span class="k"><span class="key extra"></span>extra</span>
+    <span class="k"><span class="key fervor"></span>under Fervor</span>
+    <span class="k"><span class="tempo"></span>ahead / behind</span>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const get = u => fetch(u, { cache: "no-store" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const sgn = ms => ms == null ? "—" : (ms > 0 ? "+" : ms < 0 ? "−" : "±") + (Math.abs(ms) / 1000).toFixed(2);
+  const sec = ms => ms == null ? "—" : (ms / 1000).toFixed(2) + " s";
+  const clk = ms => { const s = ms / 1000; return Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
+  const cls = ms => ms == null ? "m" : ms > 50 ? "r" : ms < -50 ? "g" : "m";
+  const SECL = { pre: "Before the first Electro-whirl", core: "Electro-whirl + Shrapnel", fill: "Filler", burst: "Bomb burst" };
+  const SECN = { pre: "pre", core: "EW", fill: "fill", burst: "burst" };
+  const LATE_OK = 400;    // a 20 s skill this late after being ready gets a mark (the bench is 0.0 to 0.6 s)
+  let ICONS = {}, P = null, current = null, follow = true, HIST = [];
+  const icon = (id, name) => ICONS[id] ? `<img src="${esc(ICONS[id])}" alt="">` : `<span class="tx">${esc(String(name).slice(0, 4))}</span>`;
+  function tempoBg(d) {
+    if (d == null || Math.abs(d) <= 50) return "";
+    const k = 0.35 + 0.65 * Math.min(1, (Math.abs(d) - 50) / 350);
+    const from = [58, 60, 64], to = d > 0 ? [168, 32, 28] : [24, 120, 58];
+    return `background: rgb(${from.map((v, i) => Math.round(v + (to[i] - v) * k)).join(",")})`;
+  }
+  const TW = new Set();
+  const fervorOn = (c) => P.fervorIv && P.fervorIv.some(([a, b]) => c.t >= a && c.t < b);
+
+  function chipCls(c) {
+    const k = [c.kind === "ghost" ? "ghost" : "", c.kind === "extra" ? "extra" : ""];
+    (c.flags || []).forEach(f => k.push(f));
+    if (TW.has(String(c.id)) && c.late != null && c.late > LATE_OK) k.push("cdlate");
+    if (c.t != null && fervorOn(c)) k.push("fervor");
+    return k.join(" ");
+  }
+
+  function render() {
+    TW.clear(); (P.twenty || []).forEach(x => TW.add(x));
+    const last = P.lag.length ? P.lag[P.lag.length - 1] : 0;
+    const dps = P.dps / P.benchDps * 100 - 100;
+    const B = P.buffs, RB = P.refBuffs;
+    $("head").innerHTML = `
+      <div><div class="ttl">Scrapper golem · <select id="pick">${HIST.map(h => `<option value="${h.log}" ${h.log === P.log ? "selected" : ""}>${h.log.slice(4, 6)}/${h.log.slice(6, 8)} ${h.log.slice(9, 11)}:${h.log.slice(11, 13)} · ${clk(h.secs * 1000)}</option>`).reverse().join("")}</select>
+        <label><input type="checkbox" id="follow" ${follow ? "checked" : ""}> newest</label></div>
+        <div class="big">${clk(P.secs * 1000)} <small>bench ${clk(P.benchSecs * 1000)}</small></div></div>
+      <div class="lagbig" data-tip="lag"><b class="${cls(last)}">${sgn(last)}</b><span>behind bench at last Electro-whirl</span></div>
+      <div class="counts">
+        <span class="c" data-tip="dps">DPS <b>${(P.dps / 1000).toFixed(1)}k</b> <span class="${dps < 0 ? "r" : "g"}">${dps > 0 ? "+" : "−"}${Math.abs(dps).toFixed(1)}%</span></span>
+        <span class="c" data-tip="buffs">Fervor <b>${B.fervor}%</b> <span class="m">bench ${RB.fervor}%</span></span>
+        <span class="c" data-tip="buffs">Superspeed <b>${B.superspeed}%</b> <span class="m">${RB.superspeed}%</span></span>
+        <span class="c" data-tip="buffs">Object in Motion <b>+${B.motion.bonus.toFixed(1)}%</b> <span class="m">${RB.motion.bonus.toFixed(1)}%</span></span>
+      </div>`;
+    $("pick").onchange = e => { follow = false; load(e.target.value); };
+    $("follow").onchange = e => { follow = e.target.checked; if (follow && HIST.length) load(HIST[HIST.length - 1].log); };
+
+    let html = "", mi = 0;
+    P.rows.forEach((r, ri) => {
+      const d = r.len != null && r.refLen != null ? r.len - r.refLen : null;
+      const tc = r.tc && r.tc.late != null ? r.tc : null;
+      const fm = r.fervor.mine;
+      html += `<div class="cyc" data-tip="cyc" data-r="${ri}"><span class="t">Cycle ${r.n}</span>
+        <span>${r.len != null ? sec(r.len) : "…"} <b class="${cls(d)}">${d != null ? sgn(d) : ""}</b></span>
+        <span>20 s skills late <b class="${r.late20 != null && r.refLate20 != null ? cls(r.late20 - r.refLate20) : "m"}">${r.late20 != null ? sgn(r.late20) : ((r.len != null || r.n === 0) && r.cdMissing.some(x => x.id === 30713) ? '<span class="r">no Thunderclap</span>' : "—")}</b>${r.refLate20 != null ? ` <span class="m">bench ${sgn(r.refLate20)}</span>` : ""}</span>
+        <span>Fervor <b>${fm.inside.length}/${fm.of}</b></span>
+        <span>SS <b class="${r.refBuffs && r.buffs.superspeed < r.refBuffs.superspeed - 5 ? "r" : ""}">${r.buffs.superspeed}%</b></span></div>`;
+      if (r.pre) html += splitRow(`${r.n}·0`, "pre", { pre: { ...r.pre, time: null, refTime: null } }, null, null, `ri=${ri}&m=pre`);
+      r.minis.forEach((m, k) => {
+        if (!m) return;
+        const lagS = P.lag[mi] != null ? P.lag[mi] : null;
+        const lagE = P.lag[mi + 1] != null ? P.lag[mi + 1] : null;
+        html += splitRow(`${r.n}·${k + 1}`, ["first", "second", "third"][k] || "", m.sections, m, lagE != null ? lagE : lagS, `ri=${ri}&m=${k}`);
+        mi++;
+      });
+    });
+    $("splits").innerHTML = html;
+  }
+
+  function splitRow(label, sub, sections, m, lag, key) {
+    let secs = "";
+    Object.entries(sections).forEach(([sk, s]) => {
+      const d = s.time != null && s.refTime != null ? s.time - s.refTime : null;
+      const chips = s.chips.filter(c => c.kind !== "cut");
+      const err = chips.some(c => c.kind === "ghost"), xtra = chips.some(c => c.kind === "extra");
+      secs += `<div class="sec ${sk} ${err ? "err" : xtra ? "xtra" : ""}" style="${tempoBg(d)}" data-tip="sec" data-k="${key}" data-s="${sk}">
+        <div class="top"><span>${SECN[sk]}</span><b>${s.time != null ? (s.time / 1000).toFixed(2) : ""}</b><span>${d != null ? sgn(d) : ""}</span></div>
+        <div class="ics">${chips.map((c, i) => `<span class="ic ${chipCls(c)}" data-tip="skill" data-k="${key}" data-s="${sk}" data-c="${s.chips.indexOf(c)}">${icon(c.id, c.name)}</span>`).join("")}</div></div>`;
+    });
+    const d = m && m.len != null && m.refLen != null ? m.len - m.refLen : null;
+    return `<div class="split"><div class="lbl"><b>${label}</b><span>${sub}</span></div><div class="secs">${secs}</div>
+      <div class="num" style="${tempoBg(d)}"><b>${m && m.len != null ? (m.len / 1000).toFixed(2) : "—"}</b><span class="${cls(d)}">${d != null ? sgn(d) : ""}</span></div>
+      <div class="num"><b class="${cls(lag)}">${lag != null ? sgn(lag) : ""}</b><span>${m && m.start != null ? clk(m.start) : ""}</span></div></div>`;
+  }
+
+  // ---- hover cards ----
+  function find(key) {
+    const q = new URLSearchParams(key), r = P.rows[+q.get("ri")], m = q.get("m");
+    return { r, sections: m === "pre" ? { pre: r.pre } : r.minis[+m].sections, m };
+  }
+  function skillTip(c) {
+    const rows = [];
+    if (c.kind === "ghost") rows.push(["", "<span class='r'>bench casts this here, you didn't</span>"], ["Bench cast time", sec(c.refDur)]);
+    else {
+      rows.push(["Cast time", `${sec(c.dur)}${c.refDur != null ? ` <span class="m">bench ${sec(c.refDur)}</span>` : ""}`]);
+      if (c.slot != null) rows.push(["Start to next cast", `${sec(c.slot)}${c.refSlot != null ? ` <span class="m">bench ${sec(c.refSlot)}</span>` : ""}`]);
+      if (c.lost != null) rows.push(["Lost here", `<b class="${cls(c.lost)}">${sgn(c.lost)}</b>`]);
+      if (c.cdWait) rows.push(["Next skill on cooldown", `${sec(c.cdWait)} <span class="m">not counted</span>`]);
+      if (c.late != null) rows.push(["After ready", `<b class="${c.late > LATE_OK ? "y" : ""}">${sgn(c.late)}</b>${c.refLate != null ? ` <span class="m">bench ${sgn(c.refLate)}</span>` : ""}`]);
+      if (c.kind === "extra") rows.push(["", "<span class='y'>the bench has no such cast here</span>"]);
+      if (fervorOn(c)) rows.push(["Bloodstone Fervor", "on (+7% strike)"]);
+      if (c.t != null) rows.push(["At", clk(c.t) + (c.ref ? ` <span class="m">bench ${clk(c.ref.t)}</span>` : "")]);
+    }
+    return `<h3>${icon(c.id, c.name)} ${esc(c.name)}</h3><dl>${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl>`;
+  }
+  function secTip(s, sk) {
+    const cols = s.chips.filter(c => c.kind !== "cut").map(c => {
+      const b = c.kind === "ghost" ? icon(c.id, c.name) : c.ref ? icon(c.ref.id, c.ref.name) : "";
+      const y = c.kind === "ghost" ? "" : icon(c.id, c.name);
+      return `<div class="col"><div class="b">${b}</div><div class="yv ${chipCls(c)}">${y}</div><div class="d ${cls(c.lost)}">${c.lost != null ? sgn(c.lost) : c.kind === "extra" ? "extra" : c.kind === "ghost" ? "miss" : ""}</div></div>`;
+    }).join("");
+    const d = s.time != null && s.refTime != null ? s.time - s.refTime : null;
+    return `<h3>${SECL[sk]}</h3><div class="sub">${sec(s.time)} · bench ${sec(s.refTime)} · <span class="${cls(d)}">${d != null ? sgn(d) : ""}</span>${sk === "fill" ? " · matched as a set" : ""}</div>
+      <div class="pv"><div class="lab"><span>bench</span><span>you</span></div>${cols}</div>`;
+  }
+  function cycTip(r) {
+    const rows = r.cd.map(c => `<tr><td class="nm">${icon(c.id, c.name)} ${esc(c.name)}</td><td>${clk(c.t)}</td>
+      <td class="${c.late != null && c.late > LATE_OK ? "y" : ""}">${c.late != null ? sgn(c.late) : "—"}</td><td class="m">${c.refLate != null ? sgn(c.refLate) : "—"}</td></tr>`).join("")
+      + r.cdMissing.map(x => `<tr><td class="nm">${icon(x.id, x.name)} ${esc(x.name)}</td><td colspan="3" class="r">bench casts it, you didn't</td></tr>`).join("");
+    const fm = r.fervor.mine, fr = r.fervor.ref, b = r.buffs, rb = r.refBuffs || {};
+    const gaps = b.ssGaps.filter(g => g.len > 300).map(g => `${clk(g.from)} for ${sec(g.len)}`).join(", ") || "none";
+    return `<h3>Cycle ${r.n}${r.refN !== r.n && r.refN != null ? ` <span class="m">(bench cycle ${r.refN})</span>` : ""}</h3>
+      <div class="sub">${sec(r.len)} · bench ${sec(r.refLen)}. A 20 s skill is ready 16 s after its cast ends (alacrity); the cycle can't be shorter.</div>
+      <table><tr><th>Cooldown skill</th><th>cast</th><th>after ready</th><th>bench</th></tr>${rows}</table>
+      <dl style="margin-top:8px">
+        <dt>Bloodstone Fervor</dt><dd>${fm.at.length ? fm.at.map(a => sgn(a)).join(", ") + " s from the cycle start" : "<span class='r'>none</span>"} · covers ${fm.inside.length} of ${fm.of} 20 s skills${fr ? ` <span class="m">bench ${fr.inside.length} of ${fr.of}</span>` : ""}</dd>
+        <dt>Superspeed</dt><dd>${b.superspeed}% <span class="m">bench ${rb.superspeed != null ? rb.superspeed + "%" : "—"}</span></dd>
+        <dt>Superspeed gaps</dt><dd>${gaps}</dd>
+        <dt>Object in Motion</dt><dd>+${b.motion.bonus.toFixed(1)}% (${b.motion.boons.toFixed(2)} of 3 boons) <span class="m">bench ${rb.motion ? "+" + rb.motion.bonus.toFixed(1) + "%" : "—"}</span></dd>
+      </dl>`;
+  }
+  function buffTip() {
+    const B = P.buffs, R = P.refBuffs;
+    const row = (n, a, b) => `<tr><td>${n}</td><td>${a}</td><td class="m">${b}</td></tr>`;
+    return `<h3>Whole pull</h3><table><tr><th></th><th>you</th><th>bench</th></tr>
+      ${row("Bloodstone Fervor", B.fervor + "%", R.fervor + "%")}
+      ${row("Superspeed", B.superspeed + "%", R.superspeed + "%")}
+      ${row("Stability", B.stability + "%", R.stability + "%")}
+      ${row("Swiftness", B.swiftness + "%", R.swiftness + "%")}
+      ${row("Alacrity", B.alacrity + "%", R.alacrity + "%")}
+      ${row("Object in Motion", "+" + B.motion.bonus.toFixed(1) + "%", "+" + R.motion.bonus.toFixed(1) + "%")}
+      </table><div class="sub" style="margin-top:6px">Object in Motion: +5% strike per boon among stability, swiftness and superspeed, compounding. Fervor: +7% strike for 8 s after the 4th blast in a field (Relic of Bloodstone).</div>
+      <dl><dt>Superspeed gaps</dt><dd>${B.ssGaps.map(g => `${clk(g.from)} ${sec(g.len)}`).join(", ") || "none"}</dd></dl>`;
+  }
+  const tip = $("tip");
+  document.addEventListener("mouseover", e => {
+    const el = e.target.closest("[data-tip]");
+    if (!el || !P) { tip.style.display = "none"; return; }
+    const t = el.dataset.tip;
+    let h = "";
+    if (t === "skill") { const f = find(el.dataset.k); h = skillTip(f.sections[el.dataset.s].chips[+el.dataset.c]); }
+    else if (t === "sec") { const f = find(el.dataset.k); h = secTip(f.sections[el.dataset.s], el.dataset.s); }
+    else if (t === "cyc") h = cycTip(P.rows[+el.dataset.r]);
+    else if (t === "buffs" || t === "dps") h = buffTip() + (t === "dps" ? `<div class="sub" style="margin-top:6px">${(P.damage / 1e6).toFixed(2)}M damage in ${P.secs} s; bench ${(P.benchDps / 1000).toFixed(1)}k over ${P.benchSecs} s.</div>` : "");
+    else if (t === "lag") h = `<h3>Behind the bench</h3><div class="sub">Each Electro-whirl against the bench's of the same number, both from the first cast.</div><div>${P.lag.map(sgn).join(" · ")}</div>`;
+    if (!h) { tip.style.display = "none"; return; }
+    tip.innerHTML = h;
+    tip.style.display = "block";
+    const y = Math.min(el.getBoundingClientRect().top, window.innerHeight - tip.offsetHeight - 10);
+    tip.style.top = Math.max(10, y) + "px";
+  });
+
+  async function load(stem) {
+    current = stem;
+    try { P = await get("/api/scrapper/compare?log=" + stem); render(); }
+    catch (e) { $("splits").innerHTML = `<p class="empty">Could not read ${esc(stem)}: ${esc(e.message)}</p>`; }
+  }
+  let ver = null;
+  async function tick() {
+    try {
+      const v = (await get("/api/version")).v;
+      if (ver && v !== ver) { location.hash = current || ""; location.reload(); return; }
+      ver = v;
+      const l = await get("/api/scrapper/latest");
+      if (l.count !== HIST.length) HIST = await get("/api/scrapper/history");
+      if (follow && l.latest && l.latest !== current) load(l.latest);
+      else if (!current && l.latest) load(l.latest);
+    } catch (e) {}
+  }
+  (async () => {
+    ICONS = await get("/api/scrapper/icons").catch(() => ({}));
+    const h = location.hash.slice(1);
+    HIST = await get("/api/scrapper/history").catch(() => []);
+    if (h && HIST.some(x => x.log === h) && h !== (HIST[HIST.length - 1] || {}).log) { follow = false; load(h); }
+    await tick();
+    setInterval(tick, 2000);
+  })();
+})();
+</script>
+</body>
+</html>

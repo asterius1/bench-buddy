@@ -1,0 +1,175 @@
+# Bench Buddy
+
+Bench Buddy compares your Guild Wars 2 golem rotation with a benchmark log, cast by cast. It shows
+the result in your browser and, through a Nexus addon, in the game.
+
+Do a pull on the Standard Kitty Golem with arcdps logging, and a few seconds after the golem dies the
+page shows each of your loops next to the bench's. You see where you lost time, which casts came late
+or never landed, which skills sat ready too long, and how far behind the bench you finished.
+
+Nothing is uploaded. Bench Buddy reads the logs arcdps already writes on your PC. It downloads only
+the bench log, once, from dps.report.
+
+## Builds
+
+| Build | Page | In game |
+|---|---|---|
+| Condi Berserker (longbow + sword/torch) | http://127.0.0.1:8771/ | Splits panel, fills in live during a pull |
+| Power Scrapper (hammer) | http://127.0.0.1:8771/scrapper | Cycle grid and the bench cheat sheet |
+
+Your build isn't here yet? See [Add your own build](#add-your-own-build) below. It's written so you
+can do it with an AI coding agent even if you don't program.
+
+## What you need
+
+- Windows, Guild Wars 2 and [arcdps](https://www.deltaconnected.com/arcdps/) with logging on. Logs
+  from October 2026 on, since older ones have no cast events. Bench Buddy looks in
+  `Documents\Guild Wars 2\addons\arcdps\arcdps.cbtlogs`. If yours are elsewhere, set the environment
+  variable `BENCH_BUDDY_LOGS` to that folder.
+- [Python 3.10 or newer](https://www.python.org/downloads/). Nothing else: no packages to install.
+- For the in-game panel: [Nexus](https://raidcore.gg/Nexus) and the addon DLL (see
+  [addon/README.md](addon/README.md)).
+
+## Start
+
+1. Download this repository (Code > Download ZIP, or `git clone`).
+2. Double-click `run.bat`. A browser tab opens on http://127.0.0.1:8771/. Leave the window running.
+3. Do a golem pull. When arcdps has written the log, the page shows it by itself.
+
+The first start downloads the bench logs, which takes a few seconds. Click a row in the pull list to
+open an earlier pull.
+
+## How it works
+
+```
+arcdps log (.zevtc)
+   -> core/evtc.py, core/evtc_rot.py     your casts, hits, weapon swaps and buffs
+   -> modules/<build>/                   lined up with the bench log and judged
+   -> core/serve.py (run.bat)            serves the page and the JSON on 127.0.0.1:8771
+   -> the page in your browser, and the addon in game
+```
+
+| Folder | What's in it |
+|---|---|
+| `core/` | The log reader, the local server, the live judge for the addon, and downloads (`web.py`). |
+| `modules/berserker/` | Condi Berserker: analysis, page and views. [README](modules/berserker/README.md) |
+| `modules/scrapper/` | Power Scrapper: analysis, pages and what the addon draws. [README](modules/scrapper/README.md) |
+| `modules/_template/` | A small working module to copy for a new build. |
+| `addon/` | The Nexus addon (Rust). [README](addon/README.md) |
+| `tools/` | Helpers: `whatlog.py` (what your logs hold), `feedcheck.py` and `livecast.py` (live feed research). |
+| `AGENTS.md` | Notes for AI coding agents: architecture, the module contract, rules of thumb. |
+
+## Add your own build
+
+A module is a folder under `modules/` that reads your logs of one build and compares them with that
+build's benchmark log. The template does the basics: it lines up your casts with the bench's in order
+and shows how far behind each one started. You then teach it how your rotation works, step by step.
+
+### 1. Get a bench log
+
+You need a golem log of someone playing the build well, on [dps.report](https://dps.report). The
+build guides on [Snow Crows](https://snowcrows.com) link a benchmark log for each build. Open it and
+copy the end of the address: for `https://dps.report/55xd-20260422-192633_golem` that's
+`55xd-20260422-192633_golem`.
+
+Also do a few golem pulls yourself with arcdps on, so there are logs to test with.
+
+### 2. Copy the template
+
+Copy `modules/_template` to a new folder, for example `modules/firebrand`. The name must not start
+with `_`, because folders starting with `_` are skipped.
+
+### 3. Find your build's numbers
+
+Run this in the repository folder:
+
+```
+python tools/whatlog.py
+```
+
+It prints your newest golem logs with your elite spec id (`ELITE = 62`) and your most cast skills
+with their ids. Pick one or two skills that only your build casts. Those go in `SIGNATURE`, and they
+are how Bench Buddy tells your Firebrand logs from your other characters' logs.
+
+### 4. Fill in the settings
+
+Open `modules/firebrand/module.py` and change the four lines under "the four settings to fill in":
+
+```python
+NAME = "Quickness Firebrand"
+ROUTE = "firebrand"                 # the page will be http://127.0.0.1:8771/firebrand
+ELITE = 62
+SIGNATURE = (41258, 40624)          # skill ids from whatlog.py (these two are made up)
+PERMALINK = "abcd-20260101-120000_golem"   # made up too: use your bench log's
+```
+
+Close the `run.bat` window and start it again. It prints your module's address. Open it: you should
+see your newest pull lined up with the bench.
+
+If it says "waiting for a log of this build", `ELITE` or `SIGNATURE` don't match your logs. Run
+`python modules/firebrand/module.py` to see the error in plain text.
+
+### 5. Teach it your rotation with an agent
+
+This is where an AI coding agent (Claude Code, Cursor, Copilot...) does the work. Open the repository
+folder in it and describe your build the way you would explain it to a new player. The agent reads
+`AGENTS.md` for how Bench Buddy works, but it doesn't know your build. That part comes from you.
+
+What to tell it:
+
+- **What a loop is.** What repeats, and what marks the start of a new loop: a weapon swap, a kit,
+  one skill. Example: "A loop starts at every Electro-whirl. Three loops make a cycle, and the third
+  one ends in the bomb burst."
+- **The anchors.** Which skills should be cast the moment they're ready, and their cooldowns. Say
+  whether a cooldown counts from the start or the end of the cast. Example: "The 20 s skills are the
+  anchor and should keep rolling. Recharge counts from the end of the cast."
+- **What a mistake is,** with a number. Example: "Flag a cast that starts more than 50 ms later than
+  the bench's at the same point. A Mine Field should land 5 hits."
+- **What you want to see.** Example: "One row per loop, a split time per loop against the bench,
+  and the skills that were late in red."
+
+Good first messages:
+
+> Read AGENTS.md and modules/firebrand. My build is Quickness Firebrand. A loop is one Mantra cycle:
+> it starts at the first Mantra of Potence charge... Split my pulls into loops like that and show one
+> row per loop with its time against the same loop of the bench.
+
+> In my last pull, check every Tome of Courage: how many hits each cast landed against the bench's.
+> Tell me how many of my pulls had a short one, and show me two examples.
+
+> I don't believe that cooldown. Measure it over all my logs and the bench log, and show me the
+> shortest recasts, not just the minimum.
+
+Tips that save a lot of back and forth:
+
+- **One change per message.** Look at the page after each one: it reloads by itself when the code changes.
+- **Ask for counts and examples,** like "how many of my pulls fit this, and show me one that doesn't."
+  Guesses presented as facts are the most common way a module goes wrong.
+- **Don't take a cooldown from a single recast.** Ask for the spread over many casts.
+- **Say what you see in game** when the log can't show it ("I pre-cast this before the golem
+  activates"). The agent should record it as "seen in play".
+- **Keep to your folder.** Ask the agent not to change `core/` or another build's module unless it has
+  to, and to say so when it does.
+
+### 6. In game (optional)
+
+Drawing a new build in game needs a few changes to the Rust addon. Ask your agent to follow
+"Adding a build to the addon" in [addon/README.md](addon/README.md).
+
+## Contributing
+
+New builds, fixes and better pages are welcome. Open a pull request with your module folder and a
+`README.md` in it that says which bench log it uses, how it splits the rotation, and what it flags.
+Please don't commit logs or `cache/` folders: they hold character names.
+
+## Credits
+
+Benchmark logs and rotations from [Snow Crows](https://snowcrows.com), hosted on
+[dps.report](https://dps.report) and parsed by
+[Elite Insights](https://github.com/baaron4/GW2-Elite-Insights-Parser). Logs by
+[arcdps](https://www.deltaconnected.com/arcdps/). The addon runs on [Nexus](https://raidcore.gg/Nexus)
+through [nexus-rs](https://github.com/zerthox/nexus-rs). Skill icons and recharges from the
+[Guild Wars 2 API](https://wiki.guildwars2.com/wiki/API:Main).
+
+Bench Buddy is a fan project, not affiliated with ArenaNet. Guild Wars 2 is a trademark of ArenaNet,
+LLC. MIT licensed, see [LICENSE](LICENSE).

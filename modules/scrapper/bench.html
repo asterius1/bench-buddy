@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scrapper Bench Rotation</title>
+<style>
+:root {
+  --page: #0d0d0d; --surface: #1a1a19; --surface2: #232426; --ink: #fff; --ink2: #c3c2b7; --muted: #898781;
+  --border: rgba(255,255,255,.10); --accent: #5ea2f0; --bad: #ff6b61; --warn: #f0a53a;
+  --hammer: #8f949c; --grenade: #4ac26b; --bomb: #f08a3a; --mortar: #a67be0; --gyro: #5ea2f0; --mine: #e8c34a;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, sans-serif; padding: 16px 20px 40px; }
+h1 { font-size: 20px; font-weight: 600; margin: 0 0 2px; }
+.sub { color: var(--muted); font-size: 12px; margin-bottom: 12px; }
+.sub a { color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12px; color: var(--ink2); margin-bottom: 14px; align-items: center; }
+.legend .k { display: flex; align-items: center; gap: 6px; }
+.sw { width: 14px; height: 4px; border-radius: 2px; }
+.grid { display: grid; grid-template-columns: 70px repeat(3, minmax(0, 1fr)); gap: 6px; }
+.colh { background: var(--surface2); border-radius: 6px; padding: 8px 10px; }
+.colh b { font-size: 14px; }
+.colh .usual { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 6px; }
+.colh .note { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.rowh { display: flex; flex-direction: column; justify-content: center; padding-left: 2px; }
+.rowh b { font-size: 15px; }
+.rowh span { color: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.cell { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px 8px; min-height: 74px; }
+.cell .tm { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-bottom: 4px; }
+.toks { display: flex; flex-wrap: wrap; gap: 6px 0; align-items: flex-start; }
+.tok { display: flex; flex-direction: column; align-items: stretch; width: 36px; cursor: default; position: relative; padding-top: 16px; }
+.tok .mk { position: absolute; top: 0; left: 1px; display: flex; gap: 1px; }
+.tok .mk span { width: 14px; height: 14px; border-radius: 3px; overflow: hidden; background: #000; display: block; }
+.tok .mk span.fervor { box-shadow: 0 0 0 1.5px #d0473a; }
+.tok .mk img, .tok .mk .tx { width: 14px; height: 14px; display: block; }
+.tok .mk .tx { background: #333; font-size: 6px; }
+.tok .im { width: 36px; height: 36px; background: #000; position: relative; }
+.tok .im img, .tok .im .tx { width: 36px; height: 36px; display: block; }
+.tok .im .tx { background: #333; color: var(--ink2); font-size: 9px; display: flex; align-items: center; justify-content: center; }
+.tok .kit { height: 3px; }
+.tok .lb { font-size: 9px; color: var(--ink2); line-height: 11px; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: clip; text-align: center; }
+.tok.ew { width: 72px; }
+.tok.ew .pair { display: flex; }
+.tok.aa .im { width: 100%; background: #2a2b2e; display: flex; align-items: center; gap: 4px; overflow: hidden; box-shadow: inset 1px 0 #000; }
+.tok.aa .im img { flex: none; width: 22px; height: 22px; margin-left: 2px; border-radius: 2px; opacity: .8; }
+.tok.aa .im b { font-size: 12px; color: var(--ink2); }
+.tok.float .im::after { content: ""; position: absolute; inset: 0; border: 2px dashed var(--accent); pointer-events: none; }
+.tok.ghost .im img, .tok.ghost .im .tx { opacity: .3; filter: grayscale(1); }
+.tok.ghost .im::after { content: ""; position: absolute; inset: 0; border: 1.5px dashed var(--bad); }
+.tok.ghost { margin-left: 6px; }
+.cell.partial { opacity: .55; }
+.tip { position: fixed; background: rgba(26,26,25,.97); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; display: none; z-index: 5; max-width: 320px; }
+.tip b { font-size: 13px; }
+.tip dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 0; }
+.tip dt { color: var(--muted); } .tip dd { margin: 0; font-variant-numeric: tabular-nums; }
+details { margin-top: 18px; color: var(--ink2); font-size: 13px; max-width: 900px; }
+summary { cursor: pointer; color: var(--muted); }
+@media (max-width: 900px) { .grid { grid-template-columns: 50px repeat(3, minmax(0, 1fr)); } body { padding: 12px 16px; } }
+.tabs { display: flex; gap: 4px; margin-bottom: 10px; font-size: 13px; }
+.tabs a { color: var(--ink2); text-decoration: none; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border); }
+.tabs a.on { color: var(--accent); border-color: var(--accent); }
+</style>
+</head>
+<body>
+<div class="tabs"><a href="/scrapper">Your pull</a><a class="on" href="/scrapper/bench">Bench rotation</a><a href="/scrapper/splits">Splits</a></div>
+<h1>Power Scrapper · bench rotation</h1>
+<div class="sub" id="sub"></div>
+<div class="legend" id="legend"></div>
+<div class="grid" id="grid"></div>
+<details><summary>How this is laid out</summary>
+<p>Each row is one cycle of the 20 s skills (16 s with alacrity), starting at the whirl with the bomb burst. Each column is one mini loop, from one Electro-whirl to the next: bomb burst, nade filler, other filler. In cycle 0 the opener takes the bomb burst column. Electro-whirl and Shrapnel Grenade are one block. Hammer autos in a row are one block, with the number of auto casts on it.</p>
+<p>A skill without an outline is in the same mini loop in at least three quarters of the full cycles. A dashed blue outline marks a floating skill: it moves between mini loops with its own cooldown. A faded, dashed red icon is a usual skill this cycle left out. Small icons above a skill are instants cast during it (or right before it): detonations and Bloodstone Fervor (red ring). The width of an auto block is its number of auto casts.</p>
+<p>Kit swaps and other instants are not listed. The bench log is dps.report 55xd-20260422-192633_golem. Cooldowns are the GW2 API's, ready 25% sooner under alacrity and counted from the end of the cast.</p>
+</details>
+<div class="tip" id="tip"></div>
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const get = u => fetch(u, { cache: "no-store" }).then(r => r.json());
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const clk = ms => { const s = ms / 1000, neg = s < 0; const a = Math.abs(s); return (neg ? "−" : "") + Math.floor(a / 60) + ":" + (a % 60).toFixed(1).padStart(4, "0"); };
+  const sec = ms => ms == null ? "—" : (ms / 1000).toFixed(2) + " s";
+  const SHORT = { 5809: "Freeze", 5806: "Poison", 5810: "Barrage", 56920: "F. Gyro", 30357: "Medic", 5813: "BoB", 76530: "Magnet",
+    5823: "Fire", 5822: "Galvanic", 30885: "Gas Shell", 30307: "Endo", 6161: "Mine", 6164: "Field", 30713: "Clap",
+    6162: "Det", 6166: "Det", "-37": "Det", 76326: "Fervor", 30501: "AA", 30088: "EW", 5807: "Shrap" };
+  const KITN = { hammer: "Hammer", grenade: "Grenade kit", bomb: "Bomb kit", mortar: "Mortar kit", gyro: "Gyros", mine: "Mines" };
+  let ICONS = {}, D;
+  const icon = (id, name) => ICONS[id] ? `<img src="${esc(ICONS[id])}" alt="">` : `<span class="tx">${esc(SHORT[id] || String(name).slice(0, 5))}</span>`;
+  const kit = k => k ? `<div class="kit" style="background: var(--${k})"></div>` : `<div class="kit"></div>`;
+  const TIPS = [];
+  const AAW = 14;   // px per auto cast: a chain's width is its length
+  function marks(t) {
+    if (!t.marks || !t.marks.length) return "";
+    return `<div class="mk">${t.marks.map(k => `<span class="${k.id === 76326 ? "fervor" : ""}" title="${esc(k.name)}">${icon(k.id, k.name)}</span>`).join("")}</div>`;
+  }
+  function tok(t, ghost) {
+    const i = TIPS.push(t) - 1;
+    if (ghost) return `<div class="tok ghost" data-i="${i}"><div class="im">${icon(t.id, t.name)}</div>${kit(t.kit)}<div class="lb">${esc(SHORT[t.id] || t.name)}</div></div>`;
+    if (t.kind === "ew") return `<div class="tok ew" data-i="${i}">${marks(t)}<div class="pair"><div class="im">${icon(30088)}</div><div class="im">${icon(5807)}</div></div><div class="kit" style="background: linear-gradient(90deg, var(--hammer) 50%, var(--grenade) 50%)"></div><div class="lb">EW + Shrap</div></div>`;
+    if (t.kind === "aa") return `<div class="tok aa" data-i="${i}" style="width:${Math.max(40, t.n * AAW)}px">${marks(t)}<div class="im">${icon(30501)}<b>${t.n}</b></div>${kit("hammer")}<div class="lb">auto</div></div>`;
+    return `<div class="tok ${t.usual ? "" : "float"}" data-i="${i}">${marks(t)}<div class="im">${icon(t.id, t.name)}</div>${kit(t.kit)}<div class="lb">${esc(SHORT[t.id] || t.name)}</div></div>`;
+  }
+  function tipHtml(t) {
+    const rows = [];
+    if (t.kind === "ew") rows.push(["Electro-whirl", clk(t.t)], ["Shrapnel", t.shrap != null ? clk(t.shrap) : "—"], ["Both done", clk(t.end)]);
+    else if (t.kind === "aa") rows.push(["Auto casts", t.n + (t.n % 3 ? "" : ` (${t.n / 3} full chain${t.n > 3 ? "s" : ""})`)], ["From", clk(t.t)], ["Length", sec(t.end - t.t)]);
+    else {
+      rows.push(["At", clk(t.t)]);
+      if (t.dur) rows.push(["Cast time", sec(t.dur)]);
+      if (t.cd) rows.push(["Recharge", `${t.cd} s, ${(t.cd / 1.25).toFixed(1)} s with alacrity`]);
+      if (t.late != null) rows.push(["Cast after ready", sec(t.late)]);
+      if (t.usual === false) rows.push(["", "floating: not in this mini loop every cycle"]);
+    }
+    (t.marks || []).forEach(k => rows.push([k.name, clk(k.t)]));
+    return `<b>${esc(t.name)}</b><dl>${rows.map(([a, b]) => `<dt>${a}</dt><dd>${b}</dd>`).join("")}</dl>`;
+  }
+  function render() {
+    $("sub").innerHTML = `${esc(D.player)} · ${D.secs} s on the golem · ${D.rows.length} cycles (${D.full} full) · <a href="/scrapper">your pulls</a>`;
+    $("legend").innerHTML = Object.entries(KITN).map(([k, n]) => `<span class="k"><span class="sw" style="background: var(--${k})"></span>${n}</span>`).join("")
+      + `<span class="k"><span class="sw" style="height:14px;width:14px;outline:2px dashed var(--accent);outline-offset:-2px"></span>floating</span>`
+      + `<span class="k"><span class="sw" style="height:14px;width:14px;outline:1.5px dashed var(--bad);outline-offset:-2px"></span>usual, left out</span>`;
+    const NAMES = ["Bomb burst", "Nade filler", "Other filler"];
+    const NOTES = ["Whirl, bombs, Mine Field and Thunderclap; the opener in cycle 0", "Freeze and Poison after the whirl", "Floating fillers and autos"];
+    let h = `<div></div>` + D.usual.map((u, i) => `<div class="colh"><b>${NAMES[i]}</b><div class="note">${NOTES[i]}</div><div class="usual">${u.filter(x => ![76326, 6166, 6162, -37].includes(x.id)).map(x => tok({ ...x, kind: "skill", usual: true })).join("") || '<span class="note">nothing fixed</span>'}</div></div>`).join("");
+    D.rows.forEach(r => {
+      h += `<div class="rowh"><b>${r.n}</b><span>${clk(r.start)}</span><span>${r.len != null ? sec(r.len) : "cut"}</span></div>`;
+      for (let i = 0; i < 3; i++) {
+        const m = r.minis[i];
+        if (!m && i === 0 && r.pre.length) { h += `<div class="cell"><div class="tm"><span>opener, before the fight</span></div><div class="toks">${r.pre.map(t => tok(t)).join("")}</div></div>`; continue; }
+        if (!m) { h += `<div class="cell partial"></div>`; continue; }
+        const pre = i === 0 && r.pre.length ? `<div class="tm"><span>before the first whirl</span></div><div class="toks" style="margin-bottom:6px">${r.pre.map(t => tok(t)).join("")}</div>` : "";
+        h += `<div class="cell ${r.len == null ? "partial" : ""}">${pre}<div class="tm"><span>+${(m.start / 1000).toFixed(1)} s</span><span>${m.len != null ? sec(m.len) : ""}</span></div>
+          <div class="toks">${m.tokens.map(t => tok(t)).join("")}${m.missing.map(x => tok({ ...x, kind: "skill" }, true)).join("")}</div></div>`;
+      }
+    });
+    $("grid").innerHTML = h;
+  }
+  const tip = $("tip");
+  document.addEventListener("mouseover", e => {
+    const el = e.target.closest(".tok");
+    if (!el) { tip.style.display = "none"; return; }
+    tip.innerHTML = tipHtml(TIPS[+el.dataset.i]);
+    tip.style.display = "block";
+    const r = el.getBoundingClientRect();
+    tip.style.left = Math.min(r.right + 8, innerWidth - tip.offsetWidth - 8) + "px";
+    tip.style.top = Math.min(r.top, innerHeight - tip.offsetHeight - 8) + "px";
+  });
+  let ver = null;
+  setInterval(async () => { try { const v = (await get("/api/version")).v; if (ver && v !== ver) location.reload(); ver = v; } catch (e) {} }, 2000);
+  (async () => { ICONS = await get("/api/scrapper/icons").catch(() => ({})); D = await get("/api/scrapper/bench"); render(); })();
+})();
+</script>
+</body>
+</html>

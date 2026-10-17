@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Berserker checker</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --border: rgba(11,11,11,.10); --band: rgba(11,11,11,.045); --accent: #2a7de1;
+  --bad: #d92d20; --badbg: rgba(217,45,32,.16); --warn: #b25e00; --warnbg: rgba(214,130,0,.14); --ok: #1a7f37;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --border: rgba(255,255,255,.10); --band: rgba(255,255,255,.06); --accent: #5ea2f0;
+    --bad: #ff6b61; --badbg: rgba(255,107,97,.20); --warn: #f0a53a; --warnbg: rgba(240,165,58,.16); --ok: #4ac26b;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1500px; margin: 0 auto; padding: 16px 16px 48px; }
+h1 { font-size: 18px; margin: 0; }
+h2 { font-size: 15px; margin: 22px 0 6px; }
+.top { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+.top select { font: inherit; background: var(--surface); color: var(--ink); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
+.top label { color: var(--ink2); display: inline-flex; gap: 5px; align-items: center; }
+.sum { color: var(--ink2); margin: 8px 0 4px; }
+.sum b { color: var(--ink); }
+.bad { color: var(--bad); }
+.tag { color: var(--muted); font-size: 12px; }
+.lag { display: flex; flex-wrap: wrap; gap: 2px; align-items: center; margin: 4px 0 10px; }
+.lag span { font-variant-numeric: tabular-nums; font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--band); }
+.lag span.l1 { background: var(--warnbg); }
+.lag span.l2 { background: var(--badbg); color: var(--bad); font-weight: 600; }
+.wrapx { overflow-x: auto; }
+/* one grid for the whole pull, so every section lines up down the page */
+.grid { display: grid; grid-template-columns: 26px repeat(2, auto) 8px repeat(3, auto) 60px; min-width: max-content; }
+.grid > div { padding: 4px 6px; border-bottom: 1px solid var(--border); }
+.grid .hd { color: var(--muted); font-size: 12px; padding-bottom: 2px; }
+.grid .sep { padding: 0; border-bottom: none; }
+.grid .sec { border-left: 1px solid var(--border); }
+.grid .sec.first { border-left: 2px solid var(--muted); }
+.grid .refrow { border-bottom: 1px solid var(--border); padding-top: 0; }
+.hideref .chip .ri { display: none; }
+.opener { background: var(--band); }
+.n { color: var(--muted); text-align: right; font-variant-numeric: tabular-nums; }
+.chips { display: flex; gap: 2px; align-items: flex-start; }
+.chip { position: relative; width: 32px; flex: none; display: flex; flex-direction: column; align-items: center; cursor: default; }
+.chip .ic { width: 32px; height: 32px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+.chip img, .chip i { width: 30px; height: 30px; border-radius: 4px; display: block; }
+.chip i { border: 1.5px dashed var(--muted); font-style: normal; font-size: 10px; color: var(--ink2); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.chip .d { font-size: 10px; line-height: 12px; height: 12px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.chip.slow .ic { background: var(--badbg); box-shadow: inset 0 0 0 2.5px var(--bad); }
+.chip.slow .d { color: var(--bad); font-weight: 700; font-size: 11px; }
+.chip.warn .d { color: var(--warn); }
+.chip.extra .ic { box-shadow: inset 0 0 0 2px var(--warn); border-radius: 5px; }
+.chip.extra .d { color: var(--warn); }
+.chip.ghost .ic { outline: 1.5px dashed var(--bad); outline-offset: -2px; border-radius: 5px; }
+.chip.ghost .d { color: var(--bad); }
+.chip.cut { width: 18px; opacity: .45; }
+.chip.cut .ic { width: 18px; height: 18px; }
+.chip.cut img, .chip.cut i { width: 16px; height: 16px; }
+.hidecut .chip.cut { display: none; }
+.chip .b { position: absolute; right: -3px; top: -5px; font-size: 10px; font-weight: 700; color: #fff; background: var(--bad); border-radius: 6px; padding: 0 3px; line-height: 13px; }
+/* the reference cast right under yours, smaller and faded */
+.chip .ri { width: 22px; height: 22px; margin-top: 1px; opacity: .55; display: flex; align-items: center; justify-content: center; }
+.chip .ri img, .chip .ri i { width: 20px; height: 20px; border-radius: 3px; }
+.chip.cut .ri { height: 0; margin: 0; }
+.st { font-size: 12px; font-variant-numeric: tabular-nums; margin-top: 2px; white-space: nowrap; }
+.st b { font-weight: 600; }
+.st .g { color: var(--ok); }
+.st .w { color: var(--warn); }
+.st .r { color: var(--bad); font-weight: 700; }
+.tot { font-size: 12px; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+table { border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { padding: 3px 8px; border-bottom: 1px solid var(--border); text-align: left; white-space: nowrap; }
+th { font-weight: 500; color: var(--ink2); font-size: 12px; }
+td.num { text-align: right; }
+tr.pick { cursor: pointer; }
+tr.pick:hover { background: var(--band); }
+tr.cur { background: var(--band); font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; align-items: center; color: var(--ink2); font-size: 12px; margin: 6px 0 8px; }
+.legend .chip { display: inline-flex; vertical-align: middle; }
+.opening { display: flex; flex-wrap: wrap; gap: 8px 28px; align-items: flex-start; margin: 4px 0 14px; }
+.opening svg text { fill: var(--muted); font-size: 11px; }
+.opening .mine { stroke: var(--accent); }
+.opening .ref { stroke: var(--muted); stroke-dasharray: 4 3; }
+.opening .lvl { stroke: var(--bad); stroke-width: 1; stroke-dasharray: 2 3; opacity: .7; }
+.opening .gridl { stroke: var(--border); }
+.stk td.lo { color: var(--bad); font-weight: 600; }
+.stk td.na { color: var(--muted); }
+.tip { position: fixed; z-index: 10; pointer-events: none; display: none; max-width: 380px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; font-size: 12px; line-height: 1.45; box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+.tip h4 { margin: 0 0 4px; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+.tip h4 img, .tip h4 i { width: 20px; height: 20px; border-radius: 3px; }
+.tip .lvl { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; margin-top: 6px; }
+.tip .row { display: flex; justify-content: space-between; gap: 14px; }
+.tip .row span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+.tip .g { color: var(--ok); } .tip .w { color: var(--warn); } .tip .r { color: var(--bad); font-weight: 600; }
+.views { display: inline-flex; gap: 4px; }
+.views button { font: inherit; font-size: 13px; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--ink2); cursor: pointer; }
+.views button.on { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+/* the overlay views draw a 640 px panel at (20, 40) and their hover cards to its right */
+.vf { display: block; width: 1180px; max-width: 100%; height: 1060px; border: 0; margin-top: 6px; }
+.framed .top label:has(#showref), .framed .top label:has(#cut) { display: none; }
+.foot { margin-top: 20px; color: var(--muted); font-size: 12px; }
+.empty { color: var(--muted); padding: 30px 0; }
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+  <h1>Berserker checker</h1>
+  <select id="pick"></select>
+  <span class="views" id="views"></span>
+  <label><input type="checkbox" id="follow" checked> Jump to new pulls</label>
+  <label><input type="checkbox" id="showref" checked> Reference under each loop</label>
+  <label><input type="checkbox" id="cut"> Cut autos</label>
+</div>
+<div class="tip" id="tip"></div>
+<div id="view"><p class="empty">Waiting for a Berserker golem log…</p></div>
+
+<h2>Your pulls</h2>
+<div class="wrapx"><table id="hist"></table></div>
+
+<p class="foot">Watches the Standard Kitty Golem log folder and lines up each loop with the same loop of the Snow Crows log, section by section.
+Opener, sword start, sword Flurry part and the longbow's opening and closing SE FoF are matched in order; fillers are matched as a set, in any order.
+Cast time is compared with the reference cast it lines up with (an extra skill with that skill's usual time). A section's time runs from its first cast to the next section's first cast.</p>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+let ICONS = {}, current = null, latest = null, HIST = [], SLOW = 50;
+const s1 = ms => (ms / 1000).toFixed(1);
+const s2 = ms => (ms / 1000).toFixed(2);
+const sd = ms => (ms >= 0 ? '+' : '−') + (Math.abs(ms) / 1000).toFixed(2);
+const LABEL = { 23285: 'Stow', 23275: 'Dodge' };
+const nice = stem => `${stem.slice(9, 11)}:${stem.slice(11, 13)}:${stem.slice(13, 15)} · ${stem.slice(6, 8)}.${stem.slice(4, 6)}`;
+async function get(u) { const r = await fetch(u, { cache: 'no-store' }); if (!r.ok) throw new Error(await r.text()); return r.json(); }
+const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+const iconHtml = (id, name) => ICONS[id] ? `<img src="${ICONS[id]}" alt="">` : `<i>${LABEL[id] || (name || '?').slice(0, 4)}</i>`;
+
+function chip(c) {
+  const flags = c.flags || [];
+  let cls = 'chip ' + c.kind, d = '';
+  if (c.kind === 'ghost') d = 'miss';
+  else if (c.kind === 'extra') d = 'extra';
+  if (c.delta != null && c.kind !== 'cut') {
+    if (flags.includes('slow')) { cls += ' slow'; d = sd(c.delta); }
+    else if (c.delta < -SLOW) { d = c.kind === 'extra' ? 'extra' : sd(c.delta); }
+  }
+  const r = c.kind === 'ghost' ? { id: c.id, name: c.name, dur: c.refDur } : c.ref;
+  const top = c.kind === 'ghost' ? '<div class="ic"></div>' : `<div class="ic">${iconHtml(c.id, c.name)}</div>`;
+  const ri = `<div class="ri">${r ? iconHtml(r.id, r.name) : ''}</div>`;
+  const k = el('div', cls, top + ri + `<div class="d">${d}</div>`);
+  const badges = flags.filter(f => f !== 'slow').map(f => f === 'few' ? 'H' : f === 'nobuff' ? 'E' : '').join('');
+  if (badges) k.append(el('span', 'b', badges));
+  // rotation level: how far behind the bench this cast starts (the last lined-up cast for misses and extras)
+  let lag = null, lagExact = false;
+  if (c.ref && c.t != null) { lag = c.t - c.ref.t; lagExact = true; CTX.lag = lag; } else lag = CTX.lag;
+  if (CTX.rowLag == null && lagExact) CTX.rowLag = lag;
+  k._info = { c, flags, sec: CTX.sec, label: CTX.label, row: CTX.row, lag, lagExact, rowLag: CTX.rowLag };
+  return k;
+}
+
+function timeLine(t, ref) {
+  if (t == null) return el('div', 'st', ref != null ? `<span class="tag">ref ${s2(ref)}</span>` : '');
+  if (ref == null) return el('div', 'st', `<b>${s2(t)}</b>`);
+  const d = t - ref, cls = d <= 50 ? 'g' : d <= 300 ? 'w' : 'r';
+  return el('div', 'st', `<b>${s2(t)}</b> <span class="${cls}">${sd(d)}</span> <span class="tag">ref ${s2(ref)}</span>`);
+}
+
+const CTX = { lag: null, rowLag: null, sec: null, label: '', row: 0 };
+function secCell(sec, first, cls, label) {
+  const d = el('div', 'sec' + (first ? ' first' : '') + (cls ? ' ' + cls : ''));
+  if (!sec) return d;
+  CTX.sec = sec; CTX.label = label;
+  const cs = el('div', 'chips');
+  sec.chips.forEach(c => cs.append(chip(c)));
+  d.append(cs, timeLine(sec.time, sec.refTime));
+  return d;
+}
+function total(part, cls) {
+  const d = el('div', 'tot' + (cls ? ' ' + cls : ''));
+  if (!part || part.len == null) return d;
+  const dd = part.refLen != null ? part.len - part.refLen : null;
+  d.innerHTML = `<b>${s2(part.len)}</b>` + (dd != null ? `<br><span class="st ${dd <= 50 ? '' : ''}"><span class="${dd <= 50 ? 'g' : dd <= 300 ? 'w' : 'r'}">${sd(dd)}</span></span>` : '');
+  return d;
+}
+
+const GOLEM_HP = 4000000;
+function cross(cum, v) {
+  for (let i = 1; i < cum.length; i++) if (cum[i] >= v) return i - 1 + (v - cum[i - 1]) / (cum[i] - cum[i - 1]);
+  return null;
+}
+function opening(d) {
+  if (!d) return '';
+  const W = 420, H = 150, L = 34, B = 18, max = Math.max(...d.ref, ...d.mine, GOLEM_HP * 0.25), n = d.ref.length - 1;
+  const until = Math.min(n, Math.floor(d.until));
+  const x = s => L + (W - L - 6) * s / n, y = v => H - B - (H - B - 6) * v / max;
+  const path = (arr, k) => arr.slice(0, k + 1).map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Damage over the first ${n} seconds">`;
+  for (let s = 0; s <= n; s += 5) svg += `<line class="gridl" x1="${x(s)}" x2="${x(s)}" y1="6" y2="${H - B}"/><text x="${x(s)}" y="${H - 4}" text-anchor="middle">${s}s</text>`;
+  for (const v of [400000, 800000, 1200000]) if (v <= max) svg += `<text x="${L - 4}" y="${y(v) + 4}" text-anchor="end">${v / 1000}k</text>`;
+  svg += `<line class="lvl" x1="${L}" x2="${W - 6}" y1="${y(GOLEM_HP * 0.2)}" y2="${y(GOLEM_HP * 0.2)}"/>`;
+  svg += `<path class="ref" d="${path(d.ref, n)}" fill="none" stroke-width="1.5"/><path class="mine" d="${path(d.mine, until)}" fill="none" stroke-width="2"/></svg>`;
+  const at = s => s <= until ? `<b>${Math.round(d.mine[s] / 1000)}k</b> <span class="tag">ref ${Math.round(d.ref[s] / 1000)}k</span> <span class="${d.mine[s] < d.ref[s] * 0.97 ? 'bad' : ''}">${Math.round(100 * (d.mine[s] / d.ref[s] - 1))}%</span>` : '–';
+  const t20 = cross(d.mine.slice(0, until + 1), GOLEM_HP * 0.2), r20 = cross(d.ref, GOLEM_HP * 0.2);
+  const lines = `<div style="font-size:13px;line-height:1.7">
+    <div>At 10 s: ${at(10)}</div><div>At 20 s: ${at(20)}</div>
+    <div>20% of the golem: <b>${t20 != null ? t20.toFixed(1) + ' s' : 'not reached'}</b> <span class="tag">ref ${r20.toFixed(1)} s</span></div>
+    <div class="tag" style="margin-top:4px"><span style="color:var(--accent)">━</span> you &nbsp; ┅ reference &nbsp; <span class="bad">┄</span> 20% of the golem</div>
+    ${d.missingBuffs.length ? `<div style="margin-top:6px">Reference has, you don't: <b>${d.missingBuffs.join(', ')}</b></div>` : ''}</div>`;
+  const ws = d.windows.map(([a, b]) => b <= d.until + 0.5);
+  const stk = `<table class="stk"><tr><th>Stacks</th>${d.windows.map(([a, b]) => `<th>${a}–${b} s</th>`).join('')}</tr>` +
+    Object.entries(d.stacks).map(([c, v]) => `<tr><td>${c}</td>` + v.mine.map((m, i) => !ws[i] ? '<td class="na">–</td>' :
+      `<td class="num ${m < v.ref[i] * 0.9 ? 'lo' : ''}" title="you ${m}, reference ${v.ref[i]}">${m} <span class="tag">/ ${v.ref[i]}</span></td>`).join('') + '</tr>').join('') + '</table>';
+  return `<h2 style="margin-top:6px">Opening</h2><div class="opening">${svg}${lines}<div>${stk}<div class="tag" style="margin-top:4px">average stacks on the golem, yours / reference; red under 90%</div></div></div><h2>Loops</h2>`;
+}
+
+function show(p) {
+  const view = $('view');
+  if (!p) { view.innerHTML = '<p class="empty">No casts in this log.</p>'; return; }
+  SLOW = p.slow;
+  const loops = p.rows.filter(r => r.sword).length;
+  let html = `<p class="sum"><b>${nice(p.log)}</b> · ${p.secs} s · ${loops} loops · ` +
+    `<span class="${p.failed ? 'bad' : ''}"><b>${p.failed}</b> of ${p.judged} casts failed</span> · Berserk ${p.berserk ?? '–'}%` +
+    (p.sword ? ` · sword visit <b>${p.sword.med} s</b> <span class="tag">ref 5.52</span>` : '') +
+    (p.bow ? ` · longbow visit <b>${p.bow.med} s</b> <span class="tag">ref 6.2</span>` : '') + '</p>';
+  html += '<div class="lag"><span class="tag" style="background:none">Behind the reference at each swap</span>' +
+    p.lag.map(l => `<span class="${l > 3000 ? 'l2' : l > 1000 ? 'l1' : ''}">${l >= 0 ? '+' : ''}${s1(l)}</span>`).join('') + '</div>';
+  html += `<div class="legend">
+    <span><span class="chip slow"><span class="ic" style="width:16px;height:16px"></span></span> more than ${p.slow} ms longer than the reference cast</span>
+    <span><b class="bad">H</b> too few hits</span><span><b class="bad">E</b> ended before its buff</span>
+    <span style="color:var(--warn)">extra</span> not in the reference here <span class="bad">miss</span> in the reference, not in yours
+    <span>section and visit times: <span class="st"><span class="g">≤ +0.05</span> <span class="w">≤ +0.30</span> <span class="r">more</span></span></span></div>`;
+  view.innerHTML = html + opening(p.damage) + '<div class="wrapx"><div class="grid" id="grid"></div></div>';
+  const g = $('grid');
+  CTX.lag = null;
+  g.append(el('div', 'hd'), el('div', 'hd sec first', 'Sword start'), el('div', 'hd sec', 'Flurry part'), el('div', 'hd sep'),
+    el('div', 'hd sec first', 'Longbow open'), el('div', 'hd sec', 'Fillers'), el('div', 'hd sec', 'Close'), el('div', 'hd', ''));
+  for (const r of p.rows) {
+    if (r.opener) {
+      const s = r.opener.sections;
+      CTX.row = 0; CTX.rowLag = null;
+      g.append(el('div', 'n myrow opener', '0'), el('div', 'myrow opener', '<span class="tag">opener</span>'), el('div', 'myrow opener'), el('div', 'sep opener'),
+        secCell(s.open, true, 'myrow opener', 'Opener'), el('div', 'myrow opener'), el('div', 'myrow opener'), total(r.opener, 'myrow opener'));
+      continue;
+    }
+    const sw = r.sword ? r.sword.sections : {}, bw = r.bow ? r.bow.sections : {};
+    const tot = el('div', 'tot myrow');
+    const parts = [r.sword, r.bow].filter(x => x && x.len != null);
+    if (parts.length) {
+      const len = parts.reduce((a, x) => a + x.len, 0), ref = parts.every(x => x.refLen != null) ? parts.reduce((a, x) => a + x.refLen, 0) : null;
+      const dd = ref != null ? len - ref : null;
+      tot.innerHTML = `<b>${s2(len)}</b>` + (dd != null ? `<br><span class="st"><span class="${dd <= 50 ? 'g' : dd <= 300 ? 'w' : 'r'}">${sd(dd)}</span></span>` : '');
+      tot.title = 'loop time (sword + longbow visit) against the reference loop';
+    }
+    CTX.row = r.n; CTX.rowLag = null;
+    g.append(el('div', 'n myrow', String(r.n) + (r.refN != null && r.refN !== r.n ? `<br><span class="tag" title="compared with reference loop ${r.refN}">r${r.refN}</span>` : '')),
+      secCell(sw.a, true, 'myrow', 'Sword start'), secCell(sw.b, false, 'myrow', 'Flurry part'), el('div', 'sep'),
+      secCell(bw.open, true, 'myrow', 'Longbow open'), secCell(bw.fill, false, 'myrow', 'Fillers'), secCell(bw.close, false, 'myrow', 'Close'), tot);
+  }
+}
+
+const tone = (d, okMax = SLOW, warnMax = 300) => d == null ? '' : d <= okMax ? 'g' : d <= warnMax ? 'w' : 'r';
+const rowH = (k, v) => `<div class="row"><span>${k}</span><span>${v}</span></div>`;
+function tipHtml(info) {
+  const { c, flags, sec, label, row, lag, lagExact, rowLag } = info;
+  const status = c.kind === 'ghost' ? '<span class="r">missed</span>' : c.kind === 'extra' ? '<span class="w">extra</span>' :
+    c.kind === 'cut' ? '<span class="tag">cut short</span>' : flags.includes('slow') ? '<span class="r">slow</span>' :
+    flags.length ? '<span class="r">failed</span>' : '<span class="g">on target</span>';
+  let h = `<h4>${iconHtml(c.id, c.name)}${c.name} · ${status}</h4><div class="lvl">Skill</div>`;
+  if (c.kind === 'ghost') {
+    h += rowH('Bench cast', `${s2(c.refDur)} s at ${s1(c.refT)} s`) + rowH('Yours', 'not cast here');
+  } else {
+    h += rowH('Cast time', c.dur != null ? `${s2(c.dur)} s` + (c.refDur != null ? ` <span class="tag">bench ${s2(c.refDur)}</span> <span class="${tone(c.delta)}">${sd(c.delta)}</span>` : '') : '?');
+    if (c.kind === 'extra') h += rowH('Bench here', c.refDur != null ? `nothing (vs its usual ${s2(c.refDur)} s)` : 'nothing');
+    if (c.expect != null) h += rowH('Hits', `${c.hits} of ${c.expect}` + (c.hits < c.expect ? ` <span class="r">${c.expect - c.hits} missing</span>` : ' <span class="g">all</span>'));
+    else if (c.hits) h += rowH('Hits', String(c.hits));
+    h += rowH('Ended', c.stop || '?');
+    if (flags.includes('nobuff')) h += rowH('Buff', '<span class="r">ended before it applied</span>');
+    h += rowH('Starts at', `${s1(c.t)} s` + (c.ref ? ` <span class="tag">bench ${s1(c.ref.t)} s</span>` : ''));
+  }
+  if (sec) {
+    const ch = sec.chips.filter(x => x.kind !== 'cut');
+    const extra = ch.filter(x => x.kind === 'extra').length, miss = ch.filter(x => x.kind === 'ghost').length;
+    const over = ch.filter(x => x.delta != null && x.kind === 'ok').reduce((a, x) => a + x.delta, 0);
+    const slow = ch.filter(x => (x.flags || []).includes('slow')).length;
+    const dt = sec.time != null && sec.refTime != null ? sec.time - sec.refTime : null;
+    h += `<div class="lvl">${label}${row ? ', loop ' + row : ''}</div>`;
+    h += rowH('Section time', sec.time != null ? `${s2(sec.time)} s` + (sec.refTime != null ? ` <span class="tag">bench ${s2(sec.refTime)}</span> <span class="${tone(dt, 50)}">${sd(dt)}</span>` : '') : (sec.refTime != null ? `<span class="tag">bench ${s2(sec.refTime)} s</span>` : '–'));
+    h += rowH('Casts', `${ch.length - miss} <span class="tag">bench ${ch.length - extra}</span>` + (extra ? ` <span class="w">${extra} extra</span>` : '') + (miss ? ` <span class="r">${miss} missed</span>` : ''));
+    h += rowH('Cast time vs bench', `<span class="${tone(over, 50)}">${sd(over)}</span>` + (slow ? ` <span class="tag">${slow} slow cast${slow > 1 ? 's' : ''}</span>` : ''));
+  }
+  h += '<div class="lvl">Rotation</div>';
+  h += rowH(lagExact ? 'Behind the bench here' : 'Behind the bench (last matched cast)', lag != null ? `<span class="${tone(lag, 300, 1500)}">${sd(lag)} s</span>` : '–');
+  if (rowLag != null && row) h += rowH('At the start of this loop', `<span class="${tone(rowLag, 300, 1500)}">${sd(rowLag)} s</span>`);
+  if (lag != null && rowLag != null && row) h += rowH('Lost in this loop so far', `<span class="${tone(lag - rowLag, 50)}">${sd(lag - rowLag)} s</span>`);
+  return h;
+}
+document.addEventListener('mouseover', e => {
+  const k = e.target.closest && e.target.closest('.chip');
+  const tip = $('tip');
+  if (!k || !k._info) { tip.style.display = 'none'; return; }
+  tip.innerHTML = tipHtml(k._info);
+  tip.style.display = 'block';
+  const r = k.getBoundingClientRect(), w = tip.offsetWidth, hgt = tip.offsetHeight;
+  let x = r.right + 8, y = r.top;
+  if (x + w > innerWidth - 8) x = r.left - w - 8;
+  if (y + hgt > innerHeight - 8) y = innerHeight - hgt - 8;
+  tip.style.left = Math.max(8, x) + 'px'; tip.style.top = Math.max(8, y) + 'px';
+});
+addEventListener('scroll', () => { $('tip').style.display = 'none'; }, { passive: true });
+
+function hist() {
+  const t = $('hist');
+  t.innerHTML = '<tr><th>Pull</th><th>Length</th><th>Loops</th><th>Failed</th><th>Sword visit</th><th>Longbow visit</th><th>Behind at loop 3</th><th>Berserk</th></tr>' +
+    [...HIST].reverse().map(h => `<tr class="pick ${h.log === current ? 'cur' : ''}" data-log="${h.log}"><td>${nice(h.log)}</td><td class="num">${h.secs} s</td><td class="num">${h.loops}</td>` +
+      `<td class="num">${h.judged ? Math.round(100 * h.failed / h.judged) + '%' : '–'}</td><td class="num">${h.sword ? h.sword.med + ' s' : '–'}</td>` +
+      `<td class="num">${h.bow ? h.bow.med + ' s' : '–'}</td><td class="num">${h.lag3 != null ? '+' + s1(h.lag3) + ' s' : '–'}</td><td class="num">${h.berserk ?? '–'}%</td></tr>`).join('');
+  t.querySelectorAll('tr.pick').forEach(r => r.onclick = () => load(r.dataset.log, false));
+  $('pick').innerHTML = [...HIST].reverse().map(h => `<option value="${h.log}" ${h.log === current ? 'selected' : ''}>${nice(h.log)} (${h.secs} s)</option>`).join('');
+}
+
+async function load(stem, auto) {
+  if (!stem) return;
+  if (!auto) $('follow').checked = stem === latest;
+  current = stem;
+  document.body.classList.toggle('framed', VIEW !== 'detail');
+  if (VIEW !== 'detail') {
+    $('view').innerHTML = `<iframe class="vf" title="${VIEW}" src="/view/${VIEW}?log=${stem}"></iframe>`;
+  } else {
+    try { show(await get('/api/compare?log=' + stem)); } catch (e) { $('view').innerHTML = `<p class="empty">Could not read ${stem}: ${e.message}</p>`; }
+  }
+  hist();
+}
+
+let VERSION = null;
+async function tick() {
+  try {
+    const v = (await get('/api/version')).v;
+    if (VERSION != null && v !== VERSION) {
+      try { sessionStorage.setItem('bzk.keep', JSON.stringify({ current, follow: $('follow').checked, y: scrollY })); } catch (e) {}
+      location.reload();
+      return;
+    }
+    VERSION = v;
+    const l = await get('/api/latest');
+    if (l.latest && l.latest !== latest) {
+      latest = l.latest;
+      HIST = await get('/api/history');
+      if ($('follow').checked || !current) await load(latest, true); else hist();
+    }
+  } catch (e) { /* server busy or a log being written */ }
+}
+
+const VIEWS = [['splits', 'Splits'], ['grid', 'Grid'], ['timeline', 'Time axis'], ['coach', 'Coach'], ['detail', 'Detail']];
+let VIEW = 'splits';
+try { const v = localStorage.getItem('bzk.view'); if (VIEWS.some(([k]) => k === v)) VIEW = v; } catch (e) {}
+function markViews() { [...document.querySelectorAll('#views button')].forEach(b => b.classList.toggle('on', b.dataset.v === VIEW)); }
+const pref = (k, d) => { try { const v = localStorage.getItem('bzk.' + k); return v == null ? d : v === '1'; } catch (e) { return d; } };
+const save = (k, v) => { try { localStorage.setItem('bzk.' + k, v ? '1' : '0'); } catch (e) {} };
+(async () => {
+  ICONS = await get('/api/icons').catch(() => ({}));
+  $('pick').onchange = e => load(e.target.value, false);
+  for (const [k, label] of VIEWS) {
+    const b = document.createElement('button');
+    b.textContent = label; b.dataset.v = k;
+    b.onclick = () => { VIEW = k; try { localStorage.setItem('bzk.view', k); } catch (e) {} markViews(); load(current, true); };
+    $('views').append(b);
+  }
+  markViews();
+  $('showref').checked = pref('ref', true);
+  $('cut').checked = pref('cut', false);
+  const apply = () => { document.body.classList.toggle('hideref', !$('showref').checked); document.body.classList.toggle('hidecut', !$('cut').checked); };
+  $('showref').onchange = () => { save('ref', $('showref').checked); apply(); };
+  $('cut').onchange = () => { save('cut', $('cut').checked); apply(); };
+  apply();
+  let keep = null;
+  try { keep = JSON.parse(sessionStorage.getItem('bzk.keep') || 'null'); sessionStorage.removeItem('bzk.keep'); } catch (e) {}
+  if (keep && !keep.follow) { $('follow').checked = false; current = keep.current; }
+  await tick();
+  if (keep && !keep.follow && keep.current) await load(keep.current, true);
+  if (keep) setTimeout(() => scrollTo(0, keep.y || 0), 300);
+  setInterval(tick, 2000);
+})();
+</script>
+</body>
+</html>

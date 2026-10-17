@@ -1,0 +1,6 @@
+# logs, downloads and per-pull summaries: they hold character names
+cache/
+# Rust build output
+addon/target/
+__pycache__/
+*.pyc

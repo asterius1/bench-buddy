@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Golem Splits</title>
+<style>
+:root {
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #fff; --ink2: #c3c2b7; --muted: #898781;
+  --border: rgba(255,255,255,.10); --accent: #5ea2f0;
+  --bad: #ff6b61; --warn: #f0a53a; --ok: #4ac26b; --gold: #e8c34a;
+  --bad-bg: rgba(255,107,97,.13); --ok-bg: rgba(74,194,107,.11);
+  --panel: rgba(34,35,38,.94); --game: #2b2c2e; --game2: #333436;
+  --tip: rgba(26,26,25,.97);
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--game); color: var(--ink); font: 13px/1.25 system-ui, sans-serif; overflow: hidden; }
+.game { position: fixed; inset: 0; width: 1920px; height: 1080px; background: var(--game); }
+.game .char { position: absolute; left: 900px; top: 520px; width: 70px; height: 150px; border-radius: 35px 35px 8px 8px; background: var(--game2); }
+.game .golem { position: absolute; left: 1150px; top: 430px; width: 180px; height: 240px; border-radius: 50% 50% 12px 12px; background: var(--game2); }
+.game .bar { position: absolute; left: 660px; bottom: 30px; width: 600px; height: 56px; border-radius: 4px; background: var(--game2); }
+
+.panel { position: absolute; left: 20px; top: 40px; background: var(--panel) !important; width: 640px; height: 1000px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 8px; padding: 12px 12px 10px; display: flex; flex-direction: column; }
+
+.head { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 4px 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.head .ttl { color: var(--muted); font-size: 12px; }
+.head .big { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; line-height: 1; }
+.head .lagbig { text-align: right; }
+.head .lagbig b { font-size: 26px; font-variant-numeric: tabular-nums; color: var(--bad); }
+.head .lagbig span { display: block; color: var(--muted); font-size: 11px; }
+.counts { grid-column: 1 / -1; display: flex; gap: 14px; color: var(--ink2); font-size: 12px; align-items: center; }
+.counts .c { display: flex; align-items: center; gap: 5px; }
+.counts .c b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.counts .dmg { margin-left: auto; color: var(--muted); }
+.counts .dmg b { color: var(--bad); }
+
+.fm { display: flex; gap: 4px; align-items: center; font-size: 11px; color: var(--muted); padding-top: 6px; }
+.fm button { font: inherit; font-size: 11px; padding: 1px 7px; border-radius: 9px; border: 1px solid var(--border); background: transparent; color: var(--ink2); cursor: pointer; }
+.fm button.on { border-color: var(--accent); color: var(--accent); }
+.sec .bud { font-size: 10px; color: var(--ink2); white-space: nowrap; }
+.cols { display: grid; grid-template-columns: 58px 1fr 54px 66px; gap: 6px; color: var(--muted); font-size: 11px; padding: 6px 0 3px; }
+.cols div:nth-child(n+3) { text-align: right; }
+
+.splits { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 2px; }
+.split { display: grid; grid-template-columns: 58px 1fr 54px 66px; gap: 6px; flex: 1 1 0; min-height: 0; max-height: 52px; align-items: stretch; border-radius: 4px; }
+.split.sw { margin-top: 3px; }
+.split:hover { background: rgba(255,255,255,.04); }
+.lbl { display: flex; flex-direction: column; justify-content: center; padding-left: 4px; cursor: default; }
+.lbl b { font-size: 15px; font-weight: 600; }
+.lbl span { color: var(--muted); font-size: 11px; }
+.secs { display: flex; gap: 3px; min-width: 0; }
+.sec { flex: 1; min-width: 0; border-radius: 4px; padding: 1px 5px; background: #3a3c40; border: 2px solid transparent; display: flex; flex-direction: column; gap: 2px; cursor: default; }
+.sec:hover { outline: 1px solid var(--accent); }
+.sec.err { border-color: var(--bad); }
+.sec.xtra { border-color: var(--warn); }
+.sec.skip { border-color: var(--bad); border-style: dashed; }
+.sec .top { display: flex; justify-content: space-between; font-size: 11px; line-height: 12px; color: var(--ink2); white-space: nowrap; }
+.sec .top b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
+.ics { --s: 24px; display: flex; gap: 3px; height: 25px; align-items: center; overflow: hidden; }
+.ic { position: relative; width: var(--s); height: var(--s); flex: none; border-radius: 3px; cursor: default; background: #000; }
+.ic img, .ic .tx { width: var(--s); height: var(--s); border-radius: 3px; display: block; }
+.ic .tx { background: #333; color: var(--ink2); font-size: 8px; display: flex; align-items: center; justify-content: center; text-transform: lowercase; }
+.ic.ghost img, .ic.ghost .tx { opacity: .35; filter: grayscale(1); }
+.ic.ghost::after { content: ""; position: absolute; inset: -1px; border: 1.5px dashed var(--bad); border-radius: 4px; }
+.ic.extra::after { content: "+"; position: absolute; right: -3px; top: -5px; font-size: 11px; font-weight: 700; color: var(--ink); text-shadow: 0 0 2px #000, 0 0 2px #000; }
+.ic.slow { box-shadow: 0 3px 0 -0px var(--warn); }
+.ic.idle::after { content: ""; position: absolute; right: -4px; top: 3px; bottom: 3px; width: 3px; border-radius: 2px; background: var(--warn); }
+.ic.few::before { content: ""; position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); border: 1px solid #000; z-index: 1; }
+.ic.nobuff::before { content: ""; position: absolute; left: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 1px solid #000; z-index: 1; }
+.ic:hover { outline: 1px solid var(--ink); }
+.more { color: var(--muted); font-size: 11px; }
+.clean { color: var(--muted); font-size: 11px; opacity: .6; }
+
+.num { text-align: right; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; justify-content: center; padding-right: 4px; cursor: default; }
+.num b { font-size: 15px; font-weight: 600; }
+.num span { font-size: 10px; color: var(--muted); }
+.num .bt { font-size: 10px; color: var(--muted); }
+.pv { display: flex; gap: 2px; margin: 2px 0 8px; }
+.pv .col { width: 26px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.pv .col .b, .pv .col .y { width: 24px; height: 24px; border-radius: 3px; position: relative; }
+.pv .col .b img, .pv .col .y img, .pv .col .b .tx, .pv .col .y .tx { width: 24px; height: 24px; border-radius: 3px; display: block; }
+.pv .col .y.ghost { outline: 1.5px dashed var(--bad); outline-offset: -2px; }
+.pv .col .y.extra { box-shadow: 0 0 0 1.5px var(--warn); }
+.pv .col .y.slow { box-shadow: 0 0 0 2px var(--warn); }
+.pv .col .y.few::after { content: ""; position: absolute; right: -2px; bottom: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--bad); border: 1px solid #000; }
+.pv .col .d { font-size: 9px; font-variant-numeric: tabular-nums; height: 11px; line-height: 11px; }
+.pv .lab { width: 40px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: var(--muted); }
+.pv .lab span { height: 24px; display: flex; align-items: center; }
+.ax { margin-top: 2px; }
+.ax .lane { position: relative; height: 22px; margin: 2px 0 2px 40px; background: rgba(255,255,255,.03); border-radius: 3px; }
+.ax .lane .nm { position: absolute; left: -40px; top: 4px; font-size: 10px; color: var(--muted); }
+.ax .bar { position: absolute; top: 1px; height: 20px; border-radius: 3px; background: #4b4d52; overflow: hidden; display: flex; align-items: center; padding-left: 1px; }
+.ax .bar img, .ax .bar .tx { width: 18px; height: 18px; border-radius: 2px; flex: none; }
+.ax .bar.me { background: #3f5f86; }
+.ax .bar.slow { background: #8a5a12; box-shadow: inset 0 0 0 1.5px var(--warn); }
+.ax .bar.few { box-shadow: inset 0 0 0 1.5px var(--bad); }
+.ax .bar.extra { background: transparent; box-shadow: inset 0 0 0 1.5px var(--warn); }
+.ax .bar.missed { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bad); opacity: .8; }
+.ax .ticks { position: relative; height: 12px; margin-left: 40px; font-size: 9px; color: var(--muted); }
+.ax .ticks span { position: absolute; transform: translateX(-50%); }
+.ax .end { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--ink2); }
+.lagbar { height: 3px; background: rgba(255,255,255,.08); border-radius: 2px; margin-top: 3px; position: relative; }
+.lagbar i { position: absolute; right: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--bad); }
+.g { color: var(--ok); } .r { color: var(--bad); } .y { color: var(--gold); } .m { color: var(--muted); }
+
+.foot { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); padding-top: 7px; border-top: 1px solid var(--border); align-items: center; }
+.foot .k { display: flex; align-items: center; gap: 5px; }
+.sw-key { width: 14px; height: 14px; border-radius: 3px; background: #555; position: relative; }
+.sw-key.ghost { background: transparent; border: 1.5px dashed var(--bad); }
+.sw-key.slow { box-shadow: 0 3px 0 var(--warn); }
+.sw-key.few::before { content: ""; position: absolute; right: -2px; bottom: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--bad); }
+.sw-key.idle::after { content: ""; position: absolute; right: -4px; top: 2px; bottom: 2px; width: 3px; border-radius: 2px; background: var(--warn); }
+.sw-key.extra::after { content: "+"; position: absolute; right: -3px; top: -6px; font-weight: 700; color: var(--ink); font-size: 11px; }
+.sw-key.err { background: transparent; border: 2px solid var(--bad); }
+.sw-key.xtra { background: transparent; border: 2px solid var(--warn); }
+.tempo { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, rgb(24,120,58), #3a3c40, rgb(168,32,28)); }
+
+.tip { position: absolute; left: 672px; width: 440px; background: var(--tip); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: none; z-index: 10; font-size: 12px; }
+.tip h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.tip h3 img { width: 28px; height: 28px; border-radius: 4px; }
+.tip .sub { color: var(--muted); margin: -3px 0 7px; }
+.tip table { border-collapse: collapse; width: 100%; font-variant-numeric: tabular-nums; }
+.tip td, .tip th { padding: 2px 4px; text-align: right; white-space: nowrap; }
+.tip th { color: var(--muted); font-weight: 400; font-size: 11px; }
+.tip td:first-child, .tip th:first-child { text-align: left; }
+.tip tr.gh td { color: var(--muted); }
+.tip td.nm { display: flex; align-items: center; gap: 5px; max-width: 150px; overflow: hidden; }
+.tip td.nm img, .tip td.nm .tx { width: 16px; height: 16px; border-radius: 2px; flex: none; }
+.tip td.nm .tx { background: #333; font-size: 7px; display: flex; align-items: center; justify-content: center; color: var(--ink2); }
+.tip dl { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; }
+.tip dt { color: var(--muted); } .tip dd { margin: 0; font-variant-numeric: tabular-nums; }
+.tag { font-size: 11px; padding: 1px 6px; border-radius: 9px; border: 1px solid currentColor; font-weight: 400; }
+</style>
+</head>
+<body>
+<div class="game"><div class="char"></div><div class="golem"></div><div class="bar"></div></div>
+<div class="panel" id="panel">
+  <div class="head" id="head"></div>
+  <div class="fm" id="fm"></div>
+  <div class="cols"><div>Split</div><div>Sections · problem casts</div><div>Split</div><div>Behind</div></div>
+  <div class="splits" id="splits"></div>
+  <div class="foot">
+    <span class="k"><span class="sw-key slow"></span>next cast late</span>
+    <span class="k"><span class="sw-key ghost"></span>missed</span>
+    <span class="k"><span class="sw-key few"></span>missed hits</span>
+    <span class="k"><span class="sw-key extra"></span>extra</span>
+    <span class="k"><span class="tempo"></span>ahead / behind</span>
+    <span class="k"><span class="sw-key err"></span>missed cast or hits</span>
+    <span class="k"><span class="sw-key xtra"></span>extra</span>
+  </div>
+</div>
+<div class="tip" id="tip"></div>
+<script src="data.js"></script>
+<script>
+(function () {
+  const P = window.PULL, ICONS = window.ICONS || {};
+  const SECN = { a: "start", b: "flurry", open: "open", fill: "fill", close: "close" };
+  const SECL = { a: "Sword start", b: "Flurry part", open: "Longbow open", fill: "Fillers", close: "Close" };
+  const TXT = { 23285: "stow", 23275: "dodge" };
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const sgn = ms => (ms > 0 ? "+" : ms < 0 ? "−" : "±") + (Math.abs(ms) / 1000).toFixed(2);
+  const sec = ms => ms == null ? "—" : (ms / 1000).toFixed(2) + " s";
+  const clk = ms => { const s = ms / 1000; return Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
+  const cls = ms => ms > 30 ? "r" : ms < -30 ? "g" : "m";
+  const icon = (id, name) => ICONS[id] ? `<img src="${esc(ICONS[id])}" alt="">` : `<span class="tx">${esc(TXT[id] || String(name).slice(0, 4))}</span>`;
+  const problems = c => c.kind === "ghost" || c.kind === "extra" || (c.flags && c.flags.length);
+
+  // Flatten parts in pull order, with lag (ms behind bench) at start and end.
+  const parts = [];
+  P.rows.forEach(r => ["opener", "sword", "bow"].forEach(k => { if (r[k]) parts.push({ n: r.n, refN: r.refN, k, p: r[k] }); }));
+  parts.forEach((x, i) => {
+    x.lagStart = i === 0 ? 0 : (P.lag[i - 1] != null ? P.lag[i - 1] : parts[i - 1].lagEnd);
+    const chips = Object.values(x.p.sections).flatMap(s => s.chips);
+    const m = chips.filter(c => c.ref && c.t != null);
+    x.off = m.length ? (m[0].t - m[0].ref.t) - x.lagStart : 0;
+    x.lagAt = c => (c.ref && c.t != null) ? c.t - c.ref.t - x.off : null;
+    if (P.lag[i] != null) x.lagEnd = P.lag[i];
+    else if (x.p.len != null) x.lagEnd = x.lagStart + x.p.len - x.p.refLen;
+    else { const m = Object.values(x.p.sections).flatMap(s => s.chips).filter(c => c.ref && c.t != null); x.lagEnd = m.length ? x.lagAt(m[m.length - 1]) : x.lagStart; x.open = true; }
+    x.delta = x.lagEnd - x.lagStart;
+  });
+  // The bench's elapsed time at the end of each split (its visit lengths added up).
+  let benchT = 0;
+  parts.forEach(x => { if (x.p.refLen != null && x.p.len != null) { benchT += x.p.refLen; x.benchEnd = benchT; } });
+  // Best/worst section per kind (complete sections only).
+  const best = {}, worst = {};
+  parts.forEach(x => Object.entries(x.p.sections).forEach(([sk, s]) => {
+    if (x.k === "opener" || s.time == null) return;
+    const key = x.k + sk, d = s.time - s.refTime;
+    if (!(key in best) || d < best[key]) best[key] = d;
+    if (!(key in worst) || d > worst[key]) worst[key] = d;
+  }));
+
+  // Totals.
+  const all = parts.flatMap(x => Object.values(x.p.sections).flatMap(s => s.chips));
+  const cnt = { slow: 0, idle: 0, ghost: 0, few: 0, extra: 0 };
+  all.forEach(c => { if (c.kind === "ghost") cnt.ghost++; if (c.kind === "extra") cnt.extra++; (c.flags || []).forEach(f => { if (f in cnt) cnt[f]++; }); });
+  const last = parts[parts.length - 1];
+  const D = P.damage, di = D && D.mine ? D.mine.length - 1 : -1;
+  const dmg = di > 0 ? (D.mine[di] / D.ref[di] - 1) * 100 : null;
+  document.getElementById("head").innerHTML = `
+    <div><div class="ttl">Golem pull · ${esc(P.log.slice(9, 11) + ":" + P.log.slice(11, 13))} · vs bench</div><div class="big">${clk(P.secs * 1000)}</div></div>
+    <div class="lagbig" data-tip="rot" data-i="${parts.length - 1}"><b>${sgn(last.lagEnd)}</b><span>behind bench at end</span></div>
+    <div class="counts">
+      <span class="c"><span class="sw-key slow"></span><b>${cnt.slow}</b> slow</span>
+      <span class="c"><span class="sw-key ghost"></span><b>${cnt.ghost}</b> missed</span>
+      <span class="c"><span class="sw-key few"></span><b>${cnt.few}</b> missed hits</span>
+      <span class="c"><span class="sw-key extra"></span><b>${cnt.extra}</b> extra</span>
+      ${dmg != null ? `<span class="dmg">Damage at ${di} s <b class="${dmg < 0 ? "r" : "g"}">${dmg > 0 ? "+" : "−"}${Math.abs(dmg).toFixed(1)}%</b></span>` : ""}
+    </div>`;
+
+  const maxLag = Math.max(...parts.map(x => Math.abs(x.lagEnd)), 1);
+  // How the fillers are judged : by how late the closing SE starts after it is
+  // ready again ("budget"), by that lateness against the bench's ("bench"), or not at all: only the
+  // whole longbow visit counts ("sandwich").
+  const FILLMODES = [["budget", "SE ready"], ["bench", "SE vs bench"], ["sandwich", "whole visit"], ["time", "section time"]];
+  let FILL = "budget";
+  try { const v = localStorage.getItem("bzk.fill"); if (FILLMODES.some(m => m[0] === v)) FILL = v; } catch (e) {}
+  const LATE_OK = 150;   // a close SE within 0.15 s of being ready counts as on time (the bench is 0.2 to 0.44 s late)
+  document.getElementById("fm").innerHTML = "Fillers judged by " + FILLMODES.map(([k, l]) =>
+    `<button data-m="${k}" class="${k === FILL ? "on" : ""}">${l}</button>`).join("");
+  document.getElementById("fm").onclick = e => { const m = e.target.dataset && e.target.dataset.m; if (!m) return;
+    try { localStorage.setItem("bzk.fill", m); } catch (err) {} location.reload(); };
+  // Background = tempo against the bench: grey when within 50 ms, green ahead, red behind,
+  // stronger the more time it is (full at 400 ms).
+  function tempoBg(d) {
+    if (d == null || Math.abs(d) <= 50) return "";
+    const k = 0.35 + 0.65 * Math.min(1, (Math.abs(d) - 50) / 350);
+    const from = [58, 60, 64], to = d > 0 ? [168, 32, 28] : [24, 120, 58];
+    const c = from.map((v, i) => Math.round(v + (to[i] - v) * k));
+    return `background: rgb(${c.join(",")})`;
+  }
+  const MAXIC = { opener: 12, sword: 10, bow: 8 };
+  let html = "";
+  parts.forEach((x, i) => {
+    const name = x.k === "opener" ? "Opener" : x.k === "sword" ? "Sword" : "Bow";
+    const num = x.k === "opener" ? "0" : x.n;
+    let secs = "";
+    const keys = Object.keys(x.p.sections);
+    keys.forEach((sk, j) => {
+      const s = x.p.sections[sk];
+      const d = s.time != null ? s.time - s.refTime : null;
+      const lastSec = i === parts.length - 1;
+      let dtxt, c = "", tempo = null;
+      if (x.k === "opener") { dtxt = `<b>${sgn(x.delta)}</b>`; tempo = x.delta; }
+      else if (d == null) dtxt = lastSec ? `<b class="m">end</b>` : `<b class="r">skipped</b>`, c = lastSec ? "" : "skip";
+      else { dtxt = `<b>${sgn(d)}</b>`; tempo = d; }
+      const cd = x.k === "bow" ? x.p.cd : null, cm = cd && cd.mine, cr = cd && cd.ref;
+      let bud = "";
+      if (sk === "fill" && cm && cm.closed) {
+        bud = `<span class="bud">${(cm.used / 1000).toFixed(1)} of ${(cm.budget / 1000).toFixed(1)} s</span>`;
+        if (FILL === "budget") { dtxt = `<b>SE ${sgn(cm.seLate)}</b>`; tempo = cm.seLate - LATE_OK; }
+        else if (FILL === "bench" && cr && cr.seLate != null) { dtxt = `<b>SE ${sgn(cm.seLate - cr.seLate)}</b>`; tempo = cm.seLate - cr.seLate; }
+        else if (FILL === "sandwich") { dtxt = `<b class="m">window</b>`; tempo = null; }
+      }
+      if (sk === "close" && cm && cm.fofLate != null) {
+        // the close starts whenever SE is ready, and FoF may then wait for its own cooldown:
+        // judge it by how late FoF came after being ready, not by the section's length
+        if (FILL === "budget") { dtxt = `<b>FoF ${sgn(cm.fofLate)}</b>`; tempo = cm.fofLate - LATE_OK; }
+        else if (FILL === "bench" && cr && cr.fofLate != null) { dtxt = `<b>FoF ${sgn(cm.fofLate - cr.fofLate)}</b>`; tempo = cm.fofLate - cr.fofLate; }
+      }
+      if (sk === "close" && FILL === "sandwich" && cm) { dtxt = `<b>${sgn(x.delta)}</b>`; tempo = x.delta; }
+      const ch = s.chips.filter(z => z.kind !== "cut");
+      if (ch.some(z => z.kind === "ghost" || (z.flags || []).includes("few") || (z.flags || []).includes("nobuff"))) c += " err";
+      else if (ch.some(z => z.kind === "extra")) c += " xtra";
+      const pr = s.chips.filter(problems);
+      const cap = Math.floor(MAXIC[x.k] * (x.k === "sword" ? 1 : 1));
+      let ics = pr.slice(0, cap).map(ch => {
+        const f = (ch.flags || []).join(" ");
+        const ci = s.chips.indexOf(ch);
+        return `<span class="ic ${ch.kind} ${f}" data-tip="skill" data-i="${i}" data-s="${sk}" data-c="${ci}">${icon(ch.id, ch.name)}</span>`;
+      }).join("");
+      if (pr.length > cap) ics += `<span class="more">+${pr.length - cap}</span>`;
+      if (!pr.length) ics = `<span class="clean">clean</span>`;
+      secs += `<div class="sec ${c}" style="${tempoBg(tempo)}" data-tip="sec" data-i="${i}" data-s="${sk}"><div class="top"><span>${SECN[sk] || sk} ${bud}</span>${dtxt}</div><div class="ics">${ics}</div></div>`;
+    });
+    const w = Math.min(100, Math.abs(x.lagEnd) / maxLag * 100);
+    const lagCls = x.delta > 30 ? "r" : x.delta < -30 ? "g" : "";
+    html += `<div class="split ${x.k === "sword" ? "sw" : ""}">
+      <div class="lbl" data-tip="part" data-i="${i}"><b>${num}</b><span>${name}</span></div>
+      <div class="secs">${secs}</div>
+      <div class="num" data-tip="part" data-i="${i}" style="border-radius:4px;${tempoBg(x.delta)}"><b>${sgn(x.delta)}</b><span>${x.p.len != null ? sec(x.p.len) : "unfinished"}</span></div>
+      <div class="num" data-tip="rot" data-i="${i}"><b class="${lagCls}">${sgn(x.lagEnd)}</b><span class="bt">${x.benchEnd != null ? "bench " + clk(x.benchEnd) : ""}</span></div>
+    </div>`;
+  });
+  document.getElementById("splits").innerHTML = html;
+  document.querySelectorAll(".ics").forEach(el => {
+    const n = el.querySelectorAll(".ic").length;
+    if (!n) return;
+    const room = el.clientWidth, size = Math.floor((room - 3 * (n - 1)) / n);
+    el.style.setProperty("--s", Math.max(16, Math.min(24, size)) + "px");
+  });
+
+  // Tooltips.
+  const tip = document.getElementById("tip");
+  const where = x => x.k === "opener" ? "Opener" : `Loop ${x.n} ${x.k === "sword" ? "Sword" : "Bow"}`;
+  const flagTxt = c => {
+    const t = [];
+    if (c.kind === "ghost") t.push(`<span class="tag r">missed</span>`);
+    if (c.kind === "extra") t.push(`<span class="tag m">extra</span>`);
+    (c.flags || []).forEach(f => t.push(f === "idle" ? `<span class="tag" style="color:var(--warn)">wait after</span>` : f === "slow" ? `<span class="tag" style="color:var(--warn)">slow</span>` : f === "few" ? `<span class="tag r">missed hits</span>` : f === "nobuff" ? `<span class="tag" style="color:var(--accent)">no buff</span>` : ""));
+    return t.join(" ");
+  };
+  function skillTip(x, sk, c) {
+    const lag = x.lagAt(c);
+    const rows = [];
+    if (c.kind === "ghost") {
+      rows.push(["Bench cast", sec(c.refDur)], ["You", "did not cast it"]);
+    } else {
+      if (c.slot != null) rows.push(["Start to next cast", `${sec(c.slot)}` + (c.refSlot != null ? ` <span class="m">bench ${sec(c.refSlot)}</span>` : "")]);
+      if (c.lost != null) rows.push(["Lost here", `<span class="${c.lost > 50 ? "r" : c.lost < -50 ? "g" : "m"}">${sgn(c.lost)} s</span>`]);
+      rows.push(["Cast time", `${sec(c.dur)} <span class="m">bench ${c.refDur != null ? sec(c.refDur) : "—"}, not judged</span>`]);
+      if (c.cdWait) rows.push(["Cooldown wait", `${sec(c.cdWait)} <span class="m">next skill not ready, not counted</span>`]);
+      if (c.gap != null) rows.push(["Wait after", `${sec(c.gap)}`]);
+      if (c.expect != null) rows.push(["Hits", `<span class="${c.hits < c.expect ? "r" : ""}">${c.hits} / ${c.expect}</span>`]);
+      if (c.stop) rows.push(["Ended by", esc(c.stop)]);
+      rows.push(["In pull", clk(c.t)]);
+      if (lag != null) rows.push(["Behind bench", `<span class="${lag > 0 ? "r" : "g"}">${sgn(lag)} s</span>`]);
+      if (c.kind === "extra") rows.push(["Bench", "not in this section"]);
+    }
+    return `<h3>${icon(c.id, c.name)}${esc(c.name)} ${flagTxt(c)}</h3>
+      <div class="sub">${where(x)} · ${SECL[sk] || sk}</div>
+      <dl>${rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("")}</dl>`;
+  }
+  function windowCard(cd) {
+    const m = cd.mine, r = cd.ref || {};
+    const row = (k, a, b, isLate) => `<dt>${k}</dt><dd>${a == null ? "—" : (isLate ? `<span class="${a > LATE_OK ? "r" : "g"}">${sgn(a)} s</span>` : sec(a))}${b != null ? ` <span class="m">bench ${isLate ? sgn(b) + " s" : sec(b)}</span>` : ""}</dd>`;
+    return `<dl style="margin:0 0 8px">
+      ${row("Window until SE is ready", m.budget, r.budget)}
+      ${row("Filled with casts", m.used, r.used)}
+      ${row("Left empty", m.idle, r.idle)}
+      ${row("Closing SE after ready", m.seLate, r.seLate, true)}
+      ${row("Closing FoF after ready", m.fofLate, r.fofLate, true)}
+    </dl><div class="sub" style="margin:-4px 0 8px">SE and FoF come back 4.0 s after their cast ends. The fillers only matter if they push the closing SE past that; a close that starts early waits for FoF, which is not a loss.</div>`;
+  }
+  function secTip(x, sk) {
+    const s = x.p.sections[sk];
+    const d = s.time != null ? s.time - s.refTime : null;
+    const chips = s.chips.filter(c => c.kind !== "cut");
+    const m = chips.filter(c => c.ref && c.t != null);
+    const lagIn = m.length ? x.lagAt(m[0]) : null;
+    // aligned columns: bench cast on top (the target), yours under it
+    const cols = chips.map(c => {
+      const f = (c.flags || []).join(" ");
+      const bench = c.kind === "ghost" ? icon(c.id, c.name) : c.ref ? icon(c.ref.id, c.ref.name) : "";
+      const mine = c.kind === "ghost" ? "" : icon(c.id, c.name);
+      const dd = c.kind === "ghost" ? '<span class="r">miss</span>' : c.kind === "extra" ? '<span style="color:var(--warn)">extra</span>'
+        : c.delta != null && Math.abs(c.delta) > 30 ? `<span class="${cls(c.delta)}">${sgn(c.delta)}</span>` : "";
+      return `<div class="col"><div class="b">${bench}</div><div class="y ${c.kind} ${f}">${mine}</div><div class="d">${dd}</div></div>`;
+    }).join("");
+    // time axis: both lanes start at their section's first cast, same scale
+    const bc = chips.filter(c => c.ref || c.kind === "ghost").map(c => ({ c, t: c.kind === "ghost" ? c.refT : c.ref.t, dur: c.kind === "ghost" ? c.refDur : c.ref.dur }));
+    const yc = chips.filter(c => c.kind !== "ghost" && c.t != null).map(c => ({ c, t: c.t, dur: c.dur || 0 }));
+    const b0 = bc.length ? Math.min(...bc.map(z => z.t)) : 0, y0 = yc.length ? Math.min(...yc.map(z => z.t)) : 0;
+    const bEnd = s.refTime != null ? s.refTime : Math.max(0, ...bc.map(z => z.t - b0 + z.dur));
+    const yEnd = s.time != null ? s.time : Math.max(0, ...yc.map(z => z.t - y0 + z.dur));
+    const span = Math.max(bEnd, yEnd, 500), W = 440 - 24 - 40;
+    const px = ms => (ms / span * W).toFixed(1);
+    const bar = (z, t0, cl, title) => `<div class="bar ${cl}" style="left:${px(z.t - t0)}px;width:${Math.max(2, px(z.dur))}px">${z.dur / span * W > 18 ? icon(z.c.id, z.c.name) : ""}</div>`;
+    const bl = bc.map(z => bar(z, b0, z.c.kind === "ghost" ? "missed" : "")).join("");
+    const yl = yc.map(z => bar(z, y0, "me " + (z.c.kind === "extra" ? "extra " : "") + (z.c.flags || []).join(" "))).join("");
+    let ticks = "";
+    for (let t = 0; t <= span; t += span > 3000 ? 1000 : 500) ticks += `<span style="left:${px(t)}px">${(t / 1000).toFixed(1)}</span>`;
+    return `<h3>${where(x)} · ${SECL[sk] || sk} ${d != null ? `<span class="${cls(d)}">${sgn(d)} s</span>` : ""}</h3>
+      <div class="sub">${sec(s.time)} vs bench ${sec(s.refTime)}${lagIn != null ? ` · entered ${sgn(lagIn)} s behind` : ""}</div>
+      ${(sk === "fill" || sk === "close") && x.p.cd && x.p.cd.mine ? windowCard(x.p.cd) : ""}
+      <div class="pv"><div class="lab"><span>Bench</span><span>You</span></div>${cols}</div>
+      <div class="ax">
+        <div class="lane"><span class="nm">Bench</span>${bl}${s.refTime != null ? `<i class="end" style="left:${px(bEnd)}px"></i>` : ""}</div>
+        <div class="lane"><span class="nm">You</span>${yl}${s.time != null ? `<i class="end" style="left:${px(yEnd)}px"></i>` : ""}</div>
+        <div class="ticks">${ticks}</div>
+      </div>`;
+  }
+  function partTip(x) {
+    const ag = x.k === "sword" ? P.sword : x.k === "bow" ? P.bow : null;
+    const rows = [["Visit", `${sec(x.p.len)} <span class="m">bench ${sec(x.p.refLen)}</span>`], ["Split", `<span class="${cls(x.delta)}">${sgn(x.delta)} s</span>`]];
+    if (ag) rows.push([`Your ${x.k} visits`, `median ${ag.med.toFixed(2)} s · ${ag.min.toFixed(2)}–${ag.max.toFixed(2)}`]);
+    if (x.refN !== x.n && x.k !== "opener") rows.push(["Compared with", `bench loop ${x.refN}`]);
+    Object.entries(x.p.sections).forEach(([sk, s]) => rows.push([SECL[sk], s.time != null ? `${sec(s.time)} <span class="${cls(s.time - s.refTime)}">${sgn(s.time - s.refTime)}</span>` : "—"]));
+    return `<h3>${where(x)}</h3><dl>${rows.map(r => `<dt>${r[0]}</dt><dd>${r[1]}</dd>`).join("")}</dl>`;
+  }
+  function rotTip(i) {
+    const x = parts[i];
+    const W = 356, H = 110, pad = 6;
+    const ys = parts.map(p => p.lagEnd), lo = Math.min(0, ...ys), hi = Math.max(...ys);
+    const X = j => pad + j * (W - 2 * pad) / (parts.length - 1);
+    const Y = v => H - pad - (v - lo) / (hi - lo || 1) * (H - 2 * pad);
+    const pts = ys.map((v, j) => `${X(j).toFixed(1)},${Y(v).toFixed(1)}`).join(" ");
+    const bars = parts.map((p, j) => j ? `<line x1="${X(j)}" x2="${X(j)}" y1="${Y(parts[j - 1].lagEnd)}" y2="${Y(p.lagEnd)}" stroke="${p.delta > 0 ? "var(--bad)" : "var(--ok)"}" stroke-width="3"/>` : "").join("");
+    let worstI = 1; parts.forEach((p, j) => { if (j && p.delta > parts[worstI].delta) worstI = j; });
+    return `<h3>Behind bench <span class="${x.lagEnd > 0 ? "r" : "g"}">${sgn(x.lagEnd)} s</span></h3>
+      <div class="sub">after ${where(x)} · this split ${sgn(x.delta)} s</div>
+      <svg width="${W}" height="${H}" style="display:block">
+        <line x1="${pad}" x2="${W - pad}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--border)"/>
+        <polyline points="${pts}" fill="none" stroke="var(--muted)" stroke-width="1"/>${bars}
+        <circle cx="${X(i)}" cy="${Y(x.lagEnd)}" r="4.5" fill="var(--ink)"/>
+      </svg>
+      <div class="sub" style="margin:4px 0 0">Most lost: ${where(parts[worstI])} <span class="r">${sgn(parts[worstI].delta)} s</span></div>`;
+  }
+  const panel = document.getElementById("panel");
+  document.addEventListener("mouseover", e => {
+    const el = e.target.closest("[data-tip]");
+    if (!el) { tip.style.display = "none"; return; }
+    const x = parts[+el.dataset.i];
+    const t = el.dataset.tip;
+    tip.innerHTML = t === "skill" ? skillTip(x, el.dataset.s, x.p.sections[el.dataset.s].chips[+el.dataset.c])
+      : t === "sec" ? secTip(x, el.dataset.s) : t === "part" ? partTip(x) : rotTip(+el.dataset.i);
+    tip.style.display = "block";
+    const r = el.getBoundingClientRect();
+    const h = tip.offsetHeight;
+    tip.style.top = Math.max(8, Math.min(window.innerHeight - h - 8, r.top + r.height / 2 - h / 2)) + "px";
+  });
+})();
+</script>
+</body>
+</html>

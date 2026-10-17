@@ -205,14 +205,53 @@ def _cyc_card(r):
             "rows": rows, "foot": foot}
 
 
+def _hits(r):
+    """Hits per skill in this cycle, yours against the bench's: yours as landed (a full cast's count
+    when the log can't tell yet), the bench's as a full cast's count (its log has only totals).
+    {id: [name, yours, bench]} for skills with a known count (scrap.HITS); cancelled casts count 0."""
+    # a whirl the log cut short: the bench casts you didn't reach yet aren't missed
+    cs = [c for m in r["minis"] for c in _chips(m) if m["len"] is not None or c["kind"] != "ghost"]
+    cs += r["pre"]["chips"] if r.get("pre") else []
+    out = {}
+    for c in cs:
+        n = scrap.HITS.get(c["id"])
+        if not n or c["kind"] == "cut":
+            continue
+        row = out.setdefault(c["id"], [c["name"], 0, 0])
+        if c["kind"] in ("ghost", "movedfrom"):
+            row[2] += n
+            continue
+        row[1] += c["landed"] if c.get("landed") is not None else n
+        if c.get("ref"):
+            row[2] += n
+    return out
+
+
+def _hits_view(per, title, sub):
+    """What the addon draws for a hit count: the net difference, the skills short most (icons), and
+    the card with every skill that differs."""
+    diff = sorted(((y - b, i, nm, y, b) for i, (nm, y, b) in per.items() if y != b), key=lambda z: (z[0], z[2]))
+    net = sum(d[0] for d in diff)
+    return {"net": net, "tone": 2 if net < 0 else 1 if net > 0 else 0,
+            "icons": [{"id": i, "name": nm, "d": d} for d, i, nm, _, _ in diff if d < 0][:3],
+            "card": {"title": title, "sub": sub,
+                     "rows": [[nm, str(y), str(b), f"{d:+d}", 2 if d < 0 else 1] for d, i, nm, y, b in diff]}}
+
+
 def panel(path):
     x = scrap.compare(path)
     if not x:
         return None
     _judge(x)
     fervor = x["fervorIv"]
-    rows, behind = [], 0
+    rows, behind, total = [], 0, {}
+    sub = "Yours as landed; the bench's as full casts (its log has only totals)."
     for r in x["rows"]:
+        per = _hits(r)
+        for i, (nm, y, b) in per.items():
+            t = total.setdefault(i, [nm, 0, 0])
+            t[1] += y
+            t[2] += b
         d = r["len"] - r["refLen"] if r["len"] is not None and r.get("refLen") is not None else None
         if d is not None:
             behind += d
@@ -220,7 +259,9 @@ def panel(path):
                      "late": f"+{r['late20'] / 1000:.1f}" if r.get("late20") is not None else "",
                      "lateTone": tone(r["late20"] - r["refLate20"]) if r.get("late20") is not None and r.get("refLate20") is not None else 0,
                      "len": r["len"], "delta": d, "behind": behind if d is not None else None,
-                     "cells": [_cell(r, k, x, fervor) for k in range(3)], "card": _cyc_card(r)})
+                     "cells": [_cell(r, k, x, fervor) for k in range(3)], "card": _cyc_card(r),
+                     "hits": _hits_view(per, f"Hits in cycle {r['n']}", sub),
+                     "hitsTotal": _hits_view({i: list(t) for i, t in total.items()}, f"Hits up to the end of cycle {r['n']}", sub)})
     B, R = x["buffs"], x["refBuffs"]
     last = x["lag"][-1] if x["lag"] else None
     return {"kind": "scrapper", "log": x["log"], "secs": x["secs"], "benchSecs": x["benchSecs"],

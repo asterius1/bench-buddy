@@ -18,6 +18,8 @@ pub enum STip {
     Cell(Value),
     /// a cycle's card
     Cyc(Value),
+    /// hits against the bench, per skill
+    Hits(Value),
 }
 
 pub enum SAct {
@@ -121,6 +123,21 @@ fn mark_icon(ui: &Ui, dl: &DrawListMut, p: [f32; 2], s: f32, w: f32, c: &Value, 
         dl.add_rect([p[0] - 1.0, p[1] - 1.0], [q[0] + 1.0, q[1] + 1.0], INK).build();
     }
     hov
+}
+
+/// A hit count ending at `p[0]`: the net against the bench ("-5 hits") with the skills short most as
+/// small icons before it; returns whether the mouse is on it.
+fn hits_line(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value, icons: &HashMap<u32, String>) -> bool {
+    let Some(net) = v["net"].as_i64() else { return false };
+    let label = if net == 0 { "±0 hits".to_string() } else { format!("{net:+} hits") };
+    let c = if net < 0 { BAD } else if net > 0 { OK } else { MUTED };
+    let mut x = p[0] - rtxt(ui, dl, F::Tiny, p, c, &label);
+    let s = 13.0;
+    for i in v["icons"].as_array().map_or(&[][..], |a| a.as_slice()).iter().rev() {
+        x -= s + 2.0;
+        icon(ui, dl, [x, p[1] + 1.0], s, i["id"].as_u64().unwrap_or(0) as u32, i["name"].as_str().unwrap_or(""), icons, false);
+    }
+    ui.is_mouse_hovering_rect([x - 2.0, p[1]], [p[0] + 2.0, p[1] + 16.0])
 }
 
 /// Width units of one token: a skill 1, Electro-whirl + Shrapnel 2, an auto chain by its length.
@@ -242,9 +259,18 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
         let d = f(&r["delta"]);
         dl.add_rect(a, e, tempo(d)).filled(true).rounding(4.0).build();
         let dt = d.map_or("\u{2026}".to_string(), sgn);
-        rtxt(ui, dl, F::Bold, [e[0] - 4.0, cy - 19.0], INK, &dt);
+        // three lines when the row has room: the split, the length, the hits; else the length goes
+        let roomy = h >= 60.0;
+        let (l1, l2, l3) = if roomy { (cy - 26.0, cy - 5.0, cy + 12.0) } else { (cy - 19.0, 0.0, cy + 3.0) };
+        rtxt(ui, dl, F::Bold, [e[0] - 4.0, l1], INK, &dt);
         let len = f(&r["len"]).map_or("unfinished".to_string(), |l| format!("{:.2} s", l / 1000.0));
-        rtxt(ui, dl, F::Tiny, [e[0] - 4.0, cy + 3.0], MUTED, &len);
+        if roomy {
+            rtxt(ui, dl, F::Tiny, [e[0] - 4.0, l2], MUTED, &len);
+        }
+        let mut hits_tip = None;
+        if hits_line(ui, dl, [e[0] - 4.0, l3], &r["hits"], icons) {
+            hits_tip = Some(STip::Hits(r["hits"]["card"].clone()));
+        }
         // behind: the sum of the splits so far, and where the cycle started
         let bh = f(&r["behind"]);
         let bc = match bh {
@@ -252,9 +278,16 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
             Some(x) if x < -30.0 => OK,
             _ => INK,
         };
-        rtxt(ui, dl, F::Bold, [b[0] - 4.0, cy - 19.0], bc, &bh.map_or(String::new(), sgn));
-        rtxt(ui, dl, F::Tiny, [b[0] - 4.0, cy + 3.0], MUTED, &format!("at {}", r["start"].as_str().unwrap_or("")));
-        if ui.is_mouse_hovering_rect(a, b) {
+        rtxt(ui, dl, F::Bold, [b[0] - 4.0, l1], bc, &bh.map_or(String::new(), sgn));
+        if roomy {
+            rtxt(ui, dl, F::Tiny, [b[0] - 4.0, l2], MUTED, &format!("at {}", r["start"].as_str().unwrap_or("")));
+        }
+        if hits_line(ui, dl, [b[0] - 4.0, l3], &r["hitsTotal"], icons) {
+            hits_tip = Some(STip::Hits(r["hitsTotal"]["card"].clone()));
+        }
+        if let Some(t) = hits_tip {
+            tip = Some((t, cy));
+        } else if ui.is_mouse_hovering_rect(a, b) {
             tip = Some((STip::Cyc(r["card"].clone()), cy));
         }
         y += h + 3.0;
@@ -555,6 +588,7 @@ pub fn draw_tip(ui: &Ui, t: STip, y: f32, panel: [f32; 4], icons: &HashMap<u32, 
                     STip::Icon(v) => icon_card(ui, &dl, p0, v, icons),
                     STip::Cell(v) => cell_card(ui, &dl, p0, v, icons),
                     STip::Cyc(v) => cyc_card(ui, &dl, p0, v),
+                    STip::Hits(v) => hits_card(ui, &dl, p0, v),
                 };
                 drop(dl);
                 ui.dummy([TIP_W - 24.0, h]);
@@ -709,6 +743,33 @@ fn lanes(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value, tiles: &[Value], ico
         t += step;
     }
     ty + 14.0 - p[1]
+}
+
+fn hits_card(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value) -> f32 {
+    let mut y = p[1];
+    txt(dl, F::H3, [p[0], y], INK, v["title"].as_str().unwrap_or(""));
+    y += line_h(F::H3);
+    txt(dl, F::Small, [p[0], y], MUTED, v["sub"].as_str().unwrap_or(""));
+    y += 20.0;
+    let rows = v["rows"].as_array().cloned().unwrap_or_default();
+    if rows.is_empty() {
+        txt(dl, F::Ttl, [p[0], y], INK2, "Every skill hit as often as the bench's.");
+        return y + 20.0 - p[1];
+    }
+    let cols = [p[0], p[0] + 220.0, p[0] + 290.0, p[0] + 370.0];
+    for (k, hd) in ["Skill", "you", "bench", "hits"].iter().enumerate() {
+        txt(dl, F::Small, [cols[k], y], MUTED, hd);
+    }
+    y += 18.0;
+    for r in rows {
+        txt(dl, F::Ttl, [cols[0], y], INK, r[0].as_str().unwrap_or(""));
+        txt(dl, F::Ttl, [cols[1], y], INK, r[1].as_str().unwrap_or(""));
+        txt(dl, F::Ttl, [cols[2], y], MUTED, r[2].as_str().unwrap_or(""));
+        txt(dl, F::Ttl, [cols[3], y], tone(r[4].as_i64().unwrap_or(0)), r[3].as_str().unwrap_or(""));
+        y += 19.0;
+    }
+    let _ = ui;
+    y + 4.0 - p[1]
 }
 
 fn cyc_card(ui: &Ui, dl: &DrawListMut, p: [f32; 2], v: &Value) -> f32 {

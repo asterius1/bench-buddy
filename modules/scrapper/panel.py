@@ -15,6 +15,11 @@ WHIRL = ["bomb burst", "nade filler", "other filler"]
 HAMMER = scrap.HAMMER
 
 
+def _whirl(k):
+    """A whirl's name; a cycle can have a fourth one (an extra Electro-whirl), which has no cell."""
+    return WHIRL[k] if k < len(WHIRL) else f"whirl {k + 1}"
+
+
 def _chips(mini):
     return [c for s in mini["sections"].values() for c in s["chips"]] if mini else []
 
@@ -65,9 +70,9 @@ def _card(c, fervor):
     if k == "ghost":
         rows.append(["", "the bench casts it here, you didn't", 2])
     if k == "movedfrom":
-        rows.append(["", f"you cast it in the {WHIRL[c['movedTo']]} instead", 4])
+        rows.append(["", f"you cast it in the {_whirl(c['movedTo'])} instead", 4])
     if k == "moved":
-        rows.append(["", f"the bench casts it in the {WHIRL[c['movedFrom']]}", 5])
+        rows.append(["", f"the bench casts it in the {_whirl(c['movedFrom'])}", 5])
     if k == "extra":
         rows.append(["", "the bench has no such cast in this cycle", 3])
     if k in ("ghost", "movedfrom"):
@@ -143,9 +148,9 @@ def _tiles(chips):
         elif c["kind"] == "ghost":
             lab, t = "miss", 2
         elif c["kind"] == "movedfrom":
-            lab, t = f"to {WHIRL[c['movedTo']].split()[0]}", 4
+            lab, t = f"to {_whirl(c['movedTo']).split()[0]}", 4
         elif c["kind"] == "moved":
-            lab, t = f"from {WHIRL[c['movedFrom']].split()[0]}", 5
+            lab, t = f"from {_whirl(c['movedFrom']).split()[0]}", 5
         elif c["kind"] == "extra":
             lab, t = "extra", 3
         else:
@@ -173,7 +178,7 @@ def _cell(r, k, x, fervor):
         chips = [c for c in _chips(m) if m["len"] is not None or c["kind"] != "ghost"]
         d = m["len"] - m["refLen"] if m["len"] is not None and m.get("refLen") is not None else None
         time = m["len"]
-        title = f"Cycle {r['n']} · {WHIRL[k].capitalize()}" + (f" (bench cycle {r['refN']})" if r.get("refN") not in (None, r["n"]) else "")
+        title = f"Cycle {r['n']} · {_whirl(k).capitalize()}" + (f" (bench cycle {r['refN']})" if r.get("refN") not in (None, r["n"]) else "")
         sub = f"{sec(m['len'])} · bench {sec(m.get('refLen'))} · {sgn(d)} · starts {clk(m['start'])}, bench {clk(m.get('refStart'))}"
         names = {"core": "Electro-whirl + Shrapnel", "fill": "Filler", "burst": "Bomb burst"}
         splits = [[names[n], sec(s["time"]), sec(s["refTime"]),

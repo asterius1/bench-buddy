@@ -23,17 +23,21 @@ can do it with an AI coding agent even if you don't program.
 ## What you need
 
 - Windows, Guild Wars 2 and [arcdps](https://www.deltaconnected.com/arcdps/) with logging on. Logs
-  from October 2026 on, since older ones have no cast events. Bench Buddy looks in
-  `Documents\Guild Wars 2\addons\arcdps\arcdps.cbtlogs`. If yours are elsewhere, set the environment
-  variable `BENCH_BUDDY_LOGS` to that folder.
-- [Python 3.10 or newer](https://www.python.org/downloads/). Nothing else: no packages to install.
-- For the in-game panel: [Nexus](https://raidcore.gg/Nexus) and the addon DLL (see
-  [addon/README.md](addon/README.md)).
+  from October 2026 on, since older ones have no cast events. Bench Buddy finds them where arcdps
+  writes them: the log folder set in arcdps's options (`arcdps.ini`), else
+  `Documents\Guild Wars 2\addons\arcdps\arcdps.cbtlogs`, in any subfolder. To point it somewhere
+  else, set the environment variable `BENCH_BUDDY_LOGS` to that folder.
+- For the in-game panel: [Nexus](https://raidcore.gg/Nexus) and the addon DLL. The addon judges by
+  itself: nothing else has to run while you play (see [addon/README.md](addon/README.md)).
+- For the pages in the browser, and to build the addon: [Rust](https://rustup.rs) with its default
+  Windows (MSVC) setup.
 
 ## Start
 
 1. Download this repository (Code > Download ZIP, or `git clone`).
-2. Double-click `run.bat`. A browser tab opens on http://127.0.0.1:8771/, which shows the build of your newest golem log (switch builds in the top right corner). Leave the window running.
+2. Double-click `run.bat`. The first time, it builds the checker, which takes a minute or two. Then a
+   browser tab opens on http://127.0.0.1:8771/, which shows the build of your newest golem log
+   (switch builds in the top right corner). Leave the window running.
 3. Do a golem pull. When arcdps has written the log, the page shows it by itself.
 
 The first start downloads the bench logs, which takes a few seconds. Click a row in the pull list to
@@ -43,26 +47,33 @@ open an earlier pull.
 
 ```
 arcdps log (.zevtc)
-   -> core/evtc.py, core/evtc_rot.py     your casts, hits, weapon swaps and buffs
-   -> modules/<build>/                   lined up with the bench log and judged
-   -> core/serve.py (run.bat)            serves the page and the JSON on 127.0.0.1:8771
-   -> the page in your browser, and the addon in game
+   -> crates/core                   your casts, hits, weapon swaps and buffs
+   -> crates/<build>                lined up with the bench log and judged
+   -> crates/app                    the same judging for both of these:
+        -> crates/checker (run.bat)     the pages and their JSON on 127.0.0.1:8771
+        -> addon/                       the panel in game, and live judging during a pull
 ```
+
+Everything is in Rust, in one workspace (`Cargo.toml` at the top). The pages are HTML files.
 
 | Folder | What's in it |
 |---|---|
-| `core/` | The log reader, the local server, the live judge for the addon, and downloads (`web.py`). |
-| `modules/berserker/` | Condi Berserker: analysis, page and views. [README](modules/berserker/README.md) |
-| `modules/scrapper/` | Power Scrapper: analysis, pages and what the addon draws. [README](modules/scrapper/README.md) |
-| `modules/_template/` | A small working module to copy for a new build. |
-| `addon/` | The Nexus addon (Rust). [README](addon/README.md) |
-| `tools/` | Helpers: `whatlog.py` (what your logs hold), `feedcheck.py`, `livecast.py` and `livereplay.py` (the live feed: what it carries, the cast table, a recording judged against its logs). |
-| `AGENTS.md` | Notes for AI coding agents: architecture, the module contract, rules of thumb. |
+| `crates/core/` | The log reader, the live record from the arcdps feed, the helpers the builds share, downloads. |
+| `crates/berserker/`, `crates/scrapper/` | The two builds' judging. |
+| `crates/template/` | A small working build to copy for a new one. |
+| `crates/app/` | The judging as one service, used by the checker and the addon. |
+| `crates/checker/` | The local server behind the pages (`run.bat`). |
+| `crates/tools/` | `bbtool`: what your logs hold (`whatlog`), what the live feed carries (`feedcheck`), the live cast table (`livecast`), a recording judged against its logs (`livereplay`), live against the log (`livetest`). |
+| `modules/berserker/` | Condi Berserker's pages and views. [README](modules/berserker/README.md) |
+| `modules/scrapper/` | Power Scrapper's pages. [README](modules/scrapper/README.md) |
+| `modules/_template/` | The template build's page. |
+| `addon/` | The Nexus addon. [README](addon/README.md) |
+| `AGENTS.md` | Notes for AI coding agents: architecture, the build contract, rules of thumb. |
 
 ## Add your own build
 
-A module is a folder under `modules/` that reads your logs of one build and compares them with that
-build's benchmark log. The template does the basics: it lines up your casts with the bench's in order
+A build is a crate under `crates/` that reads your logs of one build and compares them with that
+build's benchmark log, plus its page in `modules/`. The template does the basics: it lines up your casts with the bench's in order
 and shows how far behind each one started. You then teach it how your rotation works, step by step.
 
 ### 1. Get a bench log
@@ -76,15 +87,18 @@ Also do a few golem pulls yourself with arcdps on, so there are logs to test wit
 
 ### 2. Copy the template
 
-Copy `modules/_template` to a new folder, for example `modules/firebrand`. The name must not start
-with `_`, because folders starting with `_` are skipped.
+Copy `crates/template` to a new folder, for example `crates/firebrand`, and `modules/_template` to
+`modules/firebrand`. In `crates/firebrand/Cargo.toml`, change the name to `bb_firebrand`. Then list
+it in `crates/app`: a line `bb_firebrand = { path = "../firebrand" }` under `[dependencies]` in its
+`Cargo.toml`, and a line in `simple_builds()` in `crates/app/src/lib.rs` (the comment there shows it).
+An agent can do this step for you: ask it to "add a build from the template called firebrand".
 
 ### 3. Find your build's numbers
 
 Run this in the repository folder:
 
 ```
-python tools/whatlog.py
+cargo run --release -p bbtool -- whatlog
 ```
 
 It prints your newest golem logs with your elite spec id (`ELITE = 62`) and your most cast skills
@@ -93,21 +107,22 @@ are how Bench Buddy tells your Firebrand logs from your other characters' logs.
 
 ### 4. Fill in the settings
 
-Open `modules/firebrand/module.py` and change the four lines under "the four settings to fill in":
+Open `crates/firebrand/src/lib.rs` and change the lines under "the settings to fill in":
 
-```python
-NAME = "Quickness Firebrand"
-ROUTE = "firebrand"                 # the page will be http://127.0.0.1:8771/firebrand
-ELITE = 62
-SIGNATURE = (41258, 40624)          # skill ids from whatlog.py (these two are made up)
-PERMALINK = "abcd-20260101-120000_golem"   # made up too: use your bench log's
+```rust
+pub const NAME: &str = "Quickness Firebrand";
+pub const ROUTE: &str = "firebrand";       // the page will be http://127.0.0.1:8771/firebrand
+pub const ELITE: u32 = 62;
+pub const SIGNATURE: [i64; 2] = [41258, 40624];   // skill ids from whatlog (these two are made up)
+pub const PERMALINK: &str = "abcd-20260101-120000_golem";   // made up too: use your bench log's
 ```
 
-Close the `run.bat` window and start it again. It prints your module's address. Open it: you should
-see your newest pull lined up with the bench.
+Save. The `run.bat` window builds and starts the checker again by itself and prints your build's
+address. Open it: you should see your newest pull lined up with the bench.
 
 If it says "waiting for a log of this build", `ELITE` or `SIGNATURE` don't match your logs. Run
-`python modules/firebrand/module.py` to see the error in plain text.
+`cargo test --release -p bb_firebrand -- --nocapture` to see your newest pull, or the error, in
+plain text.
 
 ### 5. Teach it your rotation with an agent
 
@@ -142,24 +157,27 @@ Good first messages:
 
 Tips that save a lot of back and forth:
 
-- **One change per message.** Look at the page after each one: it reloads by itself when the code changes.
+- **One change per message.** Look at the page after each one: it reloads by itself a few seconds
+  after the code changes (the checker builds again first).
 - **Ask for counts and examples,** like "how many of my pulls fit this, and show me one that doesn't."
   Guesses presented as facts are the most common way a module goes wrong.
 - **Don't take a cooldown from a single recast.** Ask for the spread over many casts.
 - **Say what you see in game** when the log can't show it ("I pre-cast this before the golem
   activates"). The agent should record it as "seen in play".
-- **Keep to your folder.** Ask the agent not to change `core/` or another build's module unless it has
+- **Keep to your folder.** Ask the agent not to change `crates/core` or another build unless it has
   to, and to say so when it does.
 
 ### 6. In game (optional)
 
-Drawing a new build in game needs a few changes to the Rust addon. Ask your agent to follow
-"Adding a build to the addon" in [addon/README.md](addon/README.md).
+The addon already judges every listed build, live too. Drawing a new build's own panel in game
+needs a few changes to the addon. Ask your agent to follow "Adding a build to the addon" in
+[addon/README.md](addon/README.md).
 
 ## Contributing
 
-New builds, fixes and better pages are welcome. Open a pull request with your module folder and a
-`README.md` in it that says which bench log it uses, how it splits the rotation, and what it flags.
+New builds, fixes and better pages are welcome. Open a pull request with your build's crate and page
+folder, and a `README.md` in the page folder that says which bench log it uses, how it splits the
+rotation, and what it flags.
 Please don't commit logs or `cache/` folders: they hold character names.
 
 ## Credits

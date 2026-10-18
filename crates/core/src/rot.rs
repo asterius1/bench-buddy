@@ -1,4 +1,4 @@
-//! One player's casts and hits from a raw arcdps log: the record every module reads (`core/evtc_rot.py`).
+//! One player's casts and hits from a raw arcdps log: the record every build reads.
 //! Times are ms from the log's first event. The live judge will build the same record from the feed.
 
 use std::collections::{HashMap, HashSet};

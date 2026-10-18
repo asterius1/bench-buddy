@@ -6,10 +6,12 @@
 //! http://127.0.0.1:8771/<ROUTE>, and the addon judges it live.
 //!
 //! What the checker asks of a build (the `bb_app::Build` trait, see AGENTS.md):
-//!     name, route        shown on the page, and the address it is served at
-//!     logs()             your golem logs of this build, oldest first
-//!     compare()          one pull against the bench, as JSON for page.html
-//!     history()          optional: one row per pull for the picker
+//! ```text
+//! name, route        shown on the page, and the address it is served at
+//! logs()             your golem logs of this build, oldest first
+//! compare()          one pull against the bench, as JSON for page.html
+//! history()          optional: one row per pull for the picker
+//! ```
 //!
 //! This first version lines up your casts with the bench's in order (like a diff of two lists) and
 //! gives each matched cast its start time against the bench's. Everything else (loops, cooldowns,

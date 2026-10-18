@@ -1,11 +1,13 @@
 //! The Bench Buddy checker: http://127.0.0.1:8771/ opens the build of the newest golem log;
 //! /berserker (Condi Berserker) and /scrapper (Power Scrapper).
 //!
-//!     run.bat                                   (cargo run --release -p checker, restarted on changes)
-//!     checker [port] [--no-browser]             the pages
-//!     checker api /api/scrapper/compare?log=<stem>   one route's JSON, without the server
-//!     checker live <capture.live.json>          a saved live capture judged as the addon judges it
-//!     checker snapshot [--save]                 every answer against a saved run (see snapshot.rs)
+//! ```text
+//! run.bat                                   (cargo run --release -p checker, restarted on changes)
+//! checker [port] [--no-browser]             the pages
+//! checker api /api/scrapper/compare?log=<stem>   one route's JSON, without the server
+//! checker live <capture.live.json>          a saved live capture judged as the addon judges it
+//! checker snapshot [--save]                 every answer against a saved run (see snapshot.rs)
+//! ```
 //!
 //! Watches the golem logs: each page asks every few seconds for the newest log of its build and shows
 //! it as soon as arcdps has written it. Nothing is uploaded; each build's bench log is downloaded once
@@ -250,7 +252,7 @@ fn newest(dir: &Path, ends: &[&str], skip: &[&str]) -> SystemTime {
 /// process with RESTART.
 fn watch(srv: Arc<Server>) {
     let code = |r: &Path| newest(&r.join("crates"), &[".rs", ".toml", ".json"], &["target", "cache"])
-        .max(newest(&r.join("core"), &[".json"], &["cache"])).max(newest(r, &["Cargo.toml"], &["target", "crates", "modules", "addon", "core", "tools"]));
+        .max(std::fs::metadata(r.join("Cargo.toml")).and_then(|m| m.modified()).unwrap_or(SystemTime::UNIX_EPOCH));
     let pages = |r: &Path| newest(&r.join("modules"), &[".html"], &["cache"]);
     let (c0, mut p0) = (code(&srv.root), pages(&srv.root));
     loop {

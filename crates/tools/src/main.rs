@@ -1,14 +1,18 @@
 //! Bench Buddy's measuring tools.
 //!
-//!     cargo run --release -p bbtool -- <tool> [args]
+//! ```text
+//! cargo run --release -p bbtool -- <tool> [args]
+//! ```
 //!
-//!     whatlog [count]               what your newest golem logs hold (elite spec, most cast skills)
-//!     feedcheck [SESSION_DIR]       how much of a pull the live feeds carry, against its log
-//!     livereplay [SESSION_DIR]      a recorded feed judged live, next to the log of the same pull
-//!     livecast [SESSION_DIR]        measures the live cast table (core/livecasts.json) from every
-//!                                   golem log, and checks it on a feed recording
-//!     livetest [STEM...] [--import [DIR]] [--save]
-//!                                   the live path against the log for every pull with a capture
+//! ```text
+//! whatlog [count]               what your newest golem logs hold (elite spec, most cast skills)
+//! feedcheck [SESSION_DIR]       how much of a pull the live feeds carry, against its log
+//! livereplay [SESSION_DIR]      a recorded feed judged live, next to the log of the same pull
+//! livecast [SESSION_DIR]        measures the live cast table (core/livecasts.json) from every
+//!                               golem log, and checks it on a feed recording
+//! livetest [STEM...] [--import [DIR]] [--save]
+//!                               the live path against the log for every pull with a capture
+//! ```
 //!
 //! Each tool's own documentation is at the top of its file in crates/tools/src/.
 

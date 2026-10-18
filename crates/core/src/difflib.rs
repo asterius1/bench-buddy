@@ -1,5 +1,5 @@
 //! Python's `difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()`, step for step, so
-//! the ordered matching pairs the same casts as the Python checker.
+//! the ordered matching pairs the same casts as the Python checker did.
 
 use std::collections::HashMap;
 

@@ -1,14 +1,16 @@
 //! Holds the judging against a saved run of itself, on every pull.
 //!
-//!     checker snapshot --save     keep this run's answers as the baseline (cache/snapshot/)
-//!     checker snapshot            judge everything again and show what changed since
+//! ```text
+//! checker snapshot --save     keep this run's answers as the baseline (cache/snapshot/)
+//! checker snapshot            judge everything again and show what changed since
+//! ```
 //!
 //! The answers are every JSON route of both builds, compare and pull for every Berserker pull,
 //! compare and panel for every Scrapper pull, and every saved live capture judged live. Numbers
 //! count as the same 1e-6 apart. The baseline holds character names, so it stays in cache/ (not in
 //! git). Run it before and after a change: a change that should change nothing shows nothing.
-//! The first baseline was saved from the Python checker's answers, which the Rust port matched on
-//! every pull (`tools/parity.py` in the history of the port).
+//! The Rust port matched the Python checker it replaced on every pull, route and live capture
+//! (`tools/parity.py`, in the git history just before the Python was removed).
 
 use std::collections::HashMap;
 use std::path::Path;

@@ -1,6 +1,8 @@
 //! A recorded live feed judged as the addon would, next to the log of the same pull.
 //!
-//!     bbtool livereplay [SESSION_DIR]
+//! ```text
+//! bbtool livereplay [SESSION_DIR]
+//! ```
 //!
 //! SESSION_DIR is a feed recording of the addon (default the newest). For every golem log written
 //! while it recorded, the feed's events of that pull are judged live and the log as a log, and the two

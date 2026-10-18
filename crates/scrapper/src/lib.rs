@@ -1,9 +1,22 @@
-//! Your Power Scrapper golem pulls against the Snow Crows bench (`modules/scrapper/scrap.py`).
+//! Your Power Scrapper golem pulls against the Snow Crows bench, for the checker and the addon.
 //!
-//! The loop: the 20 s skills (16 s with alacrity) are the anchor. Each cycle holds three mini loops,
-//! each opened by Electro-whirl + Shrapnel Grenade, with filler after it; the third one ends in the
-//! bomb burst, and the next cycle starts at the next Electro-whirl. The rules and their measurements
-//! are documented in the Python module; this is the same judging, step for step.
+//! ```text
+//! compare()   one pull, cycle by cycle against the bench cycle of the same number
+//! logs()      your scrapper golem logs, oldest first
+//! summary_row()  one history row per pull
+//! ```
+//!
+//! The loop: the 20 s skills (16 s with alacrity) are the anchor and should keep rolling. Each cycle
+//! holds three mini loops, each opened by Electro-whirl + Shrapnel Grenade, with filler after it; the
+//! third one ends in the bomb burst (Medic Gyro, Big Ol' Bomb, Magnetic Bomb ... Thunderclap, Mine
+//! Field), and the next cycle starts at the next Electro-whirl.
+//!
+//! Casts: yours from the raw log (`bb_core::rot`: animation start/stop), the bench's from its Elite
+//! Insights JSON (modules/scrapper/cache/bench.json, dps.report 55xd-20260422-192633_golem). Kit
+//! swaps and instant skills have no animation in your log, so both sides drop zero-length casts.
+//!
+//! Ported from the Python checker step for step (its rounding and tie orders included); the port gave
+//! the same answers on every pull.
 
 pub mod panel;
 pub mod sheet;
@@ -54,11 +67,12 @@ const DODGE: i64 = 23275;
 const CUT_MS: f64 = 100.0;
 pub const SLOW_MS: f64 = 50.0;
 const HIT_TAIL_MS: f64 = 4000.0; // casts this close to the end of the pull may not have landed yet
-const FIRE_TICKS: usize = 4; // Fire Bomb hits 4 times per cast, 1 s apart
+const FIRE_TICKS: usize = 4; // Fire Bomb hits 4 times per cast, 1 s apart (every cast in your logs)
 /// the usual pre-fight order
 const OPENER: [i64; 6] = [THROWMINE, MINEFIELD, BOB, MAGNET, FIREBOMB, GALVANIC];
 
-/// Recharge in seconds, counted from the end of the cast.
+/// Recharge in seconds (GW2 API), counted from the end of the cast: the bench recasts the 20 s skills
+/// 16.12 to 16.36 s after the previous cast ended, never under 16.
 pub fn cd(id: i64) -> Option<f64> {
     Some(match id {
         TC | FREEZE | POISON | MEDIC | BOB | MAGNET => 20.0,
@@ -75,7 +89,9 @@ pub fn cd(id: i64) -> Option<f64> {
     })
 }
 
-/// Hits a cast lands until the skill's next cast.
+/// Hits a cast lands until the skill's next cast: the usual count in your logs (completed casts, 24
+/// pulls), the same as the bench's hits per cast where it has them. Mine Field is 5 mines;
+/// Thunderclap 5 pulses.
 pub fn hits(id: i64) -> Option<i64> {
     Some(match id {
         EW => 2,
@@ -88,7 +104,9 @@ pub fn hits(id: i64) -> Option<i64> {
     })
 }
 
-/// Bombs go off a fixed fuse after they are placed.
+/// Bombs go off a fixed fuse after they are placed (seen in play: Big Ol' Bomb 3 s, Magnetic 2,
+/// Galvanic and Fire Bomb 1); used when the log has no cast of the skill to measure cast start to
+/// first hit from.
 fn fuse(id: i64) -> f64 {
     match id {
         BOB => 3000.0,
@@ -196,7 +214,9 @@ pub fn read_mine(r: &rot::Record) -> Side {
         Cast { id: c.id, name: names(c.id).map(String::from).unwrap_or_else(|| c.name.clone()), t: c.t as f64, dur,
                hits: Some(c.hits), all: Some(c.all), cut: dur < CUT_MS, stop: c.stop.clone(), ..Default::default() }
     }).collect();
-    // A hammer auto cancelled before it landed costs nothing but its time: left out of the matching.
+    // A hammer auto cancelled before it landed (0 hits, stopped early) costs nothing but its time: it is
+    // left out of the matching, like the bench's cancelled autos. Any other skill cancelled before it
+    // landed stays a cast and shows as missed hits (a Galvanic Bomb cut at 0.2 to 0.37 s is never placed).
     for c in casts.iter_mut() {
         if !c.cut && HAMMER.contains(&c.id) && c.all == Some(0) && c.stop.as_deref() != Some("done") {
             c.cut = true;
@@ -217,7 +237,13 @@ pub fn read_mine(r: &rot::Record) -> Side {
     Side { log: r.file.clone(), player: r.player.clone(), casts: all, t0: 0.0, end, buffs, damage: r.damage as f64 }
 }
 
-/// Casts before the fight (the log starts at the first hit): see `_precasts` in scrap.py.
+/// Casts before the fight. The log starts at the first hit, so skills cast before it have no
+/// animation start. A cast still under way has its end (start = end - duration). A bomb that hits
+/// before its first logged cast was placed before the fight: its start is the first hit minus the usual
+/// time from cast start to first hit in this log (the fuse). Fire Bomb hits 4 times, 1 s apart: fewer
+/// in the first seconds means the missing first tick was the hit that started the fight (not logged).
+/// Mines only hit when detonated, so pre-placed mines go before everything, in the order players
+/// play it (Throw Mine, Mine Field, Big Ol' Bomb, Magnetic, Fire Bomb, Galvanic, Thunderclap).
 fn precasts(casts: &[Cast], hits: &OMap<i64, Vec<i64>>, stop_only: &OMap<i64, (i64, i64)>,
             skills: &HashMap<i64, String>) -> Vec<Cast> {
     let nm = |sid: i64| names(sid).map(String::from).or_else(|| skills.get(&sid).cloned()).unwrap_or_else(|| sid.to_string());
@@ -503,7 +529,8 @@ fn cooldowns(cyc: &Cycle) -> Vec<Cd> {
     out
 }
 
-/// The bench cycle for cycle k: the same number; past the bench's last full cycle, two earlier.
+/// The bench cycle for cycle k: the same number; past the bench's last full cycle, two earlier
+/// (Function Gyro and Grenade Barrage, 25 s, alternate between cycles).
 fn bench_for(k: usize, n: usize) -> Option<usize> {
     let mut k = k;
     while k + 1 >= n && k > 2 {

@@ -7,11 +7,12 @@ http://127.0.0.1:8771/scrapper (`run.bat`).
 
 | File | What it does |
 |---|---|
-| `scrap.py` | The analysis: `compare()`, `history()`, `logs()`, `bench_sheet()`, `icons()`. Run it alone for a text dump of the newest pull. |
+| `crates/scrapper/src/lib.rs` | The analysis: `compare()`, `summary_row()` (history), `logs()`, `icons()`. |
 | `grid.html` | The default page at `/scrapper`: a 640 px panel, one row per cycle. |
 | `splits.html` | The older splits view, `/scrapper/splits`. |
 | `bench.html` | The bench rotation as a cheat sheet, `/scrapper/bench`. |
-| `panel.py` | What the in-game addon draws (`/api/scrapper/panel`, `/api/scrapper/sheet`). Its judging mirrors `grid.html`: change both together. |
+| `crates/scrapper/src/panel.rs` | What the in-game addon draws (`/api/scrapper/panel`). Its judging mirrors `grid.html`: change both together. |
+| `crates/scrapper/src/sheet.rs` | The bench cheat sheet: `/api/scrapper/bench` for `bench.html`, `/api/scrapper/sheet` for the addon. |
 | `cache/` | The bench log (`bench.json`, downloaded once), icons and one summary per pull. Not in git. |
 
 Your logs: golem logs where a Scrapper (elite 43) cast Electro-whirl or Shrapnel Grenade.
@@ -21,7 +22,7 @@ Your logs: golem logs where a Scrapper (elite 43) cast Electro-whirl or Shrapnel
 - **The anchor:** the 20 s skills (Freeze and Poison Grenade, Medic Gyro, Big Ol' Bomb, Magnetic Bomb,
   Thunderclap; 16 s with alacrity) should keep rolling. Recharge counts from the end of the cast: the
   bench recasts them 16.12 to 16.36 s after the previous cast ended, never under 16. Recharges are the
-  GW2 API's (`CD`).
+  GW2 API's (`cd()`).
 - **A cycle** is three mini loops, each from one Electro-whirl to the next: `core` (Electro-whirl
   through Shrapnel Grenade), then `fill`. In the mini loop holding Medic Gyro, Big Ol' Bomb or Magnetic
   Bomb everything after Shrapnel is `burst` (the bomb burst, Thunderclap, Mine Field), and that mini
@@ -39,7 +40,7 @@ Your logs: golem logs where a Scrapper (elite 43) cast Electro-whirl or Shrapnel
 - **20 s skills:** marked only when late beyond the cycle's drift: more than 0.4 s over the least late
   20 s skill of the cycle, after taking off how much later the bench casts that skill than its own
   least late one. Lateness from a longer loop belongs to the cycle, not to every skill.
-- **Hits:** each cast's hits until the skill's next cast against `HITS`, the usual count (Electro-whirl
+- **Hits:** each cast's hits until the skill's next cast against `hits()`, the usual count (Electro-whirl
   2, Shrapnel 3, Freeze 3, Poison 3, Barrage 6, Fire Bomb 4, Thunderclap 5, Mine Field 5, everything
   else 1). Fewer gets a red inner border. Casts in the last 4 s of a pull are not judged.
 - **Cancelled autos** are left out on both sides: an auto that never landed costs only its time. Any
@@ -48,14 +49,14 @@ Your logs: golem logs where a Scrapper (elite 43) cast Electro-whirl or Shrapnel
 
 ## The opener
 
-The log starts at the first hit, so casts before it have no animation start. `_precasts()` takes a
+The log starts at the first hit, so casts before it have no animation start. `precasts()` takes a
 cast still running at the start from its end (Thunderclap) and places any skill that hits before its
 first logged cast at its first hit minus its usual cast-to-first-hit time (bomb fuses: Big Ol' Bomb
 3 s, Magnetic 2, Galvanic and Fire Bomb 1). Mines only hit when detonated, so pre-placed mines go
 first: Throw Mine, Mine Field, Big Ol' Bomb, Magnetic, Fire Bomb, Galvanic, Thunderclap. Fire Bomb
 hits 4 times, 1 s apart; fewer in the first seconds means its missing tick was the hit that started
 the fight. The bench (Elite Insights JSON, no hit times) gets the same set from its hit counts
-(`_bench_precasts()`; order and times there are a guess).
+(`bench_precasts()`; order and times there are a guess).
 
 ## Buffs
 

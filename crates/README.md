@@ -1,33 +1,27 @@
-# Bench Buddy judging in Rust
+# Bench Buddy's crates
 
-The checker's judging ported to Rust, one build at a time, so the addon can judge without Python and
-the pages and the addon still run the same code. So far: the Power Scrapper (`modules/scrapper/`:
-`compare()`, the addon panel and the bench cheat sheet), with the log reading it needs
-(`core/evtc.py`, `core/evtc_rot.py`, `core/kit.py`).
+| Crate | Folder | What it is |
+|---|---|---|
+| `bb_core` | `core/` | The log reader, the record of a pull (from a log or the live feed), the helpers the builds share, downloads, the `Build` trait. |
+| `bb_berserker` | `berserker/` | Condi Berserker. |
+| `bb_scrapper` | `scrapper/` | Power Scrapper, with the addon panel and the bench cheat sheet. |
+| `bb_template` | `template/` | The starting point for a new build (not listed in the app). |
+| `bb_app` | `app/` | The judging as one service: every JSON route, live judging, captures. |
+| `checker` | `checker/` | The pages' server on 127.0.0.1:8771, and `checker api`, `live`, `snapshot`. |
+| `bbtool` | `tools/` | The measuring tools: `whatlog`, `feedcheck`, `livereplay`, `livecast`, `livetest`. |
 
-| File | Ported from |
-|---|---|
-| `src/evtc.rs` | `core/evtc.py` |
-| `src/rot.rs` | `core/evtc_rot.py` |
-| `src/kit.rs`, `src/difflib.rs` | `core/kit.py` (and Python's `difflib`, for the same cast matching) |
-| `src/scrapper/mod.rs` | `modules/scrapper/scrap.py` |
-| `src/scrapper/panel.rs`, `src/scrapper/sheet.rs` | `modules/scrapper/panel.py` and `bench_sheet()` |
+The addon (`addon/`, `bench_buddy`) is in the same workspace and uses `bb_app`.
 
-It gives the same JSON as the Python checker. Python's rounding is kept (half to even), and so are
-its tie orders.
+## Ported from Python
 
-## Check it
+The judging was a Python checker until October 2026. The port kept its answers exactly: on the
+last commit with both (`tools/parity.py` there), the Rust and Python checkers gave the same JSON on
+174 Berserker and 133 Scrapper pulls, every route, the pages and 35 live captures, and the tools the
+same output. What that took, for anyone changing the shared helpers:
 
-    python tools/judgeparity.py
+- Python's `round()` (half to even) and `round(x, n)`: `kit::round0`, `kit::round_n`.
+- Python's `sum()` of floats is compensated since 3.12: `kit::psum`.
+- `statistics.median`, `difflib.SequenceMatcher` (`difflib.rs`), and dict order wherever a map is
+  walked (`omap.rs`).
 
-builds it and compares every Scrapper pull's `compare()` and panel, and the cheat sheet, with the
-Python checker. Run it after changing either side; while both exist, a rule changes in both.
-
-    cargo run --release --bin bbjudge -- compare <log.zevtc>
-
-(from the repository root) prints one pull. `bbjudge panel`, `sheet`, `logs` and `dump <dir>` too.
-The bench is read from `modules/scrapper/cache/bench.json`, which the Python checker downloads on
-its first run.
-
-Not ported yet: the history page's rows, the bench download and icons, the live judge, and the
-Berserker.
+`checker snapshot` holds the judging against a saved run of itself, now that the Python is gone.

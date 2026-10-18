@@ -1,6 +1,8 @@
 //! What your newest golem logs hold: the settings a new build needs (its elite spec and signature).
 //!
-//!     bbtool whatlog [count]        (default the newest 5 logs)
+//! ```text
+//! bbtool whatlog [count]        (default the newest 5 logs)
+//! ```
 //!
 //! For each log: your character, its elite spec id and your most cast skills with their ids, so you
 //! can pick a signature: one or two skill ids that only your build casts.

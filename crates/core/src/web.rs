@@ -1,4 +1,4 @@
-//! Downloads: bench logs from dps.report and skill details from the GW2 API (`core/web.py`).
+//! Downloads: bench logs from dps.report and skill details from the GW2 API.
 //! dps.report refuses requests without a User-Agent (403), so every download goes through get().
 
 use std::path::Path;

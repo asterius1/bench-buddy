@@ -1,4 +1,4 @@
-//! Minimal raw arcdps `.zevtc` reader: agents, skill names and every combat event (`core/evtc.py`).
+//! Minimal raw arcdps `.zevtc` reader: agents, skill names and every combat event.
 
 use std::collections::HashMap;
 use std::path::Path;
@@ -118,7 +118,7 @@ pub fn load(path: &Path) -> Result<Log, String> {
         }
         let (addr, prof, elite) = (u64_at(&d, o), u32_at(&d, o + 8), u32_at(&d, o + 12));
         let is_player = elite != 0xFFFF_FFFF;
-        // a later agent with the same address replaces the earlier one, as in the Python dict
+        // a later agent with the same address replaces the earlier one
         by_addr.insert(addr, agents.len());
         agents.push(Agent { addr, prof, elite, name: cstr(&d[o + 28..o + 92]), is_player,
                             species: if is_player { None } else { Some(prof & 0xFFFF) } });

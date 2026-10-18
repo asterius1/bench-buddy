@@ -1,11 +1,14 @@
-//! Your Condi Berserker golem pulls against the bench (`modules/berserker/local.py`).
+//! Your Condi Berserker golem pulls against the bench, for the checker and the addon.
 //!
-//!     pull()      one pull: visits (swap to swap) with every cast judged, lag behind the bench
-//!     compare()   one pull section by section against the bench row of the same number
-//!     damage()    the opening seconds: damage and condition stacks against the bench
-//!     live()      the live record made ready for compare()
+//! ```text
+//! pull()      one pull: visits (swap to swap) with every cast judged, lag behind the bench
+//! compare()   one pull section by section against the bench row of the same number
+//! damage()    the opening seconds: damage and condition stacks against the bench
+//! live()      the live record made ready for compare()
+//! ```
 //!
-//! The loop and the rules are in modules/berserker/README.md.
+//! The loop and the rules are in modules/berserker/README.md. Ported from the Python checker step for
+//! step; the port gave the same answers on every pull.
 
 pub mod baseline;
 
@@ -28,6 +31,7 @@ pub const VERSION: i64 = 1; // bump when the summary changes, to recompute the c
 
 const SWORD: [i64; 9] = [14366, 29845, 80247, 80224, 29940, 30682, 14364, 14365, 14363];
 const BOW: [i64; 8] = [29923, 30189, 14519, 14504, 14381, 14431, 14505, 14522];
+/// a cast this much later than the bench's pace at the same point is flagged
 pub const SLOW_MS: f64 = 50.0;
 const SECTIONS: [&str; 5] = ["a", "b", "open", "fill", "close"];
 /// the sword visit's second section starts at FoW or Flurry
@@ -42,7 +46,8 @@ const BR: i64 = 30189;
 /// a live swap: this long before the first cast on the other weapon (median of 286 swaps)
 const SWAP_MS: f64 = 116.0;
 
-/// Scorched Earth and Fan of Fire come back 4.0 s after the end of their cast.
+/// Scorched Earth and Fan of Fire come back 4.0 s after the end of their cast (5 s with alacrity):
+/// the shortest end-to-start recast in 81 of your SE pairs and 62 FoF pairs is 4.00 to 4.07 s.
 fn cd_ms(id: i64) -> Option<f64> {
     (id == SE || id == FOF).then_some(4000.0)
 }
@@ -345,7 +350,8 @@ fn link_next(casts: &mut [BCast]) {
     }
 }
 
-/// The bench row for row k: the same number; past the bench's last full row, 6 loops earlier.
+/// The bench row for row k: the same number; past the bench's last full row (cut by the log end),
+/// the row one cycle earlier (6 loops: Flames of War every 2nd, Blood Reckoning every 3rd).
 fn ref_for(k: usize, n: usize) -> Option<usize> {
     let mut k = k;
     while k + 1 >= n && k > 6 {
@@ -385,6 +391,12 @@ fn chip(it: Item, mine: &[BCast], refs: &[BCast], b: &Bench, buffs: &OMap<i64, V
         out.insert("delta".into(), num(d - base));
         out.insert("refDur".into(), num(base));
     }
+    // Judged: the slot, from this cast's start to the next real cast's start, against the bench's
+    // slot at the same point. Where a cast ends and its aftercast or the wait begins does not matter
+    // (an auto cut short then waited out is the same as one played out); the next skill being still on
+    // cooldown is not a loss, so the next cast is expected at the later of the bench's pace and that
+    // skill's ready time. A closing cast before a swap is judged by when the first skill on the other
+    // weapon starts.
     if let (Some(next), Some(d)) = (c.next, c.dur) {
         let end = c.t + d;
         let nr = c.next_ready.filter(|&x| x != 0.0);
@@ -604,6 +616,7 @@ pub fn damage(path: &Path, b: &Bench) -> Value {
             }
         }
     }
+    // the bench's arrays are cumulative at each second mark, ours through the end of each second
     let mut cum = vec![0i64];
     let mut tot = 0;
     for x in &per[..OPENING_S] {

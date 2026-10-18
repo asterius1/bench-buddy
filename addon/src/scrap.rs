@@ -1,5 +1,5 @@
 //! The Power Scrapper view: `scrapper/grid.html` in game. The checker reduces everything to what is
-//! drawn (`scrapper/panel.py`, `/api/scrapper/panel` and `/api/scrapper/sheet`): per cycle three
+//! drawn (`crates/scrapper/src/panel.rs`, `/api/scrapper/panel` and `/api/scrapper/sheet`): per cycle three
 //! whirl cells (bomb burst, nade filler, other filler) and the cycle split, every icon's marks and
 //! every card's text. This only lays them out. A button swaps to the bench cheat sheet.
 

@@ -20,7 +20,10 @@ pub const AUTOS: [i64; 4] = [14364, 14365, 14363, 14431];
 pub const BERSERK: i64 = 29502;
 pub const STOW: i64 = 23285;
 
-/// Hits a full cast should land within 1 s of its end (the sources are in the Berserker README).
+/// Hits a full cast should land within 1 s of its end, and where that number comes from: "ref" is
+/// the bench's hits per cast. Flaming Flurry (30682): 47 hits in 8 casts on the bench, and the guide
+/// stows after the 6th hit. Scorched Earth (29923): its first hit; the field pulses later. Combustive
+/// Shot's (14505) count is from your logs.
 pub fn expect(id: i64) -> Option<i64> {
     Some(match id {
         14366 | 29845 | 80247 | 80224 | 14364 | 14365 | 14363 | 29923 | 14504 | 14381 | 29613 | 30074 | 30343
@@ -30,6 +33,15 @@ pub fn expect(id: i64) -> Option<i64> {
         14431 => 2,
         _ => return None,
     })
+}
+
+/// Skills that do no damage, and what they are checked by instead.
+pub fn no_hit(id: i64) -> Option<&'static str> {
+    match id {
+        30189 => Some("applies Blood Reckoning"),
+        29940 => Some("applies Flames of War (lands about 0.48 s in)"),
+        _ => None,
+    }
 }
 
 /// The buff a skill must apply.

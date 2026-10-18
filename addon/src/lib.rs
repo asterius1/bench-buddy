@@ -78,7 +78,7 @@ pub struct State {
     dir: Option<PathBuf>,
     /// settings.json as read, so that saving one setting keeps the others
     settings: Value,
-    /// "Save live captures": each pull's live events are saved next to its log for tools/livetest.py
+    /// "Save live captures": each pull's live events are saved next to its log for `bbtool livetest`
     pub capture: bool,
     /// the last capture: when, and where it went or what went wrong
     pub capture_note: Option<(Instant, String)>,

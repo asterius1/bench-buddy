@@ -1,6 +1,6 @@
 [package]
 name = "bench_buddy"
-description = "Bench Buddy: a Nexus addon that compares your golem rotation with a benchmark, drawn from the local checker"
+description = "Bench Buddy: a Nexus addon that compares your golem rotation with a benchmark, judged in the game"
 edition = "2021"
 version = "0.1.0"
 

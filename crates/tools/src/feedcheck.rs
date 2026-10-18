@@ -1,6 +1,8 @@
 //! How much of a golem pull the live arcdps feeds carry, against the log of the same pull.
 //!
-//!     bbtool feedcheck [SESSION_DIR]
+//! ```text
+//! bbtool feedcheck [SESSION_DIR]
+//! ```
 //!
 //! SESSION_DIR is a feed recording (default the newest). Each Berserker golem log written while it
 //! recorded is read raw and every event of the player is looked up in each feed by (time, kind,

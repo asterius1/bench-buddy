@@ -1,6 +1,8 @@
-//! Helpers the build modules share (`core/kit.py`): the bench's casts and buffs from its Elite
+//! Helpers the builds share, to take or leave: the bench's casts and buffs from its Elite
 //! Insights JSON, `match_casts()` (yours lined up with the bench's), and the number formats.
-//! Python's rounding is kept on purpose (round half to even), so both give the same numbers.
+//! The rounding is Python's (round half to even, compensated sums): the judging was ported from a
+//! Python checker and still gives its numbers to the last digit. A helper belongs here once two
+//! builds need it; a change must keep every build's answers the same (`checker snapshot`).
 
 use serde_json::Value;
 
@@ -9,7 +11,7 @@ use crate::difflib;
 pub const CUT_MS: f64 = 100.0; // shorter casts are cancelled clicks, not casts
 
 /// A cast as the modules judge it: times in ms (fractions appear once casts are placed or ready
-/// times computed). The optional fields are the keys only some casts have in the Python dicts.
+/// times computed). The optional fields are what only some casts have.
 #[derive(Clone, Debug, Default)]
 pub struct Cast {
     pub id: i64,
@@ -57,7 +59,7 @@ pub fn median(xs: &[f64]) -> f64 {
     if n % 2 == 1 { v[n / 2] } else { (v[n / 2 - 1] + v[n / 2]) / 2.0 }
 }
 
-/// A number as JSON: whole numbers as integers (what the readers of the Python JSON expect).
+/// A number as JSON: whole numbers as integers (the pages and the addon read them as such).
 pub fn num(x: f64) -> Value {
     if x.fract() == 0.0 && x.abs() < 9.0e15 {
         Value::from(x as i64)

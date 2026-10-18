@@ -1,9 +1,11 @@
 //! The live path against the log, for every pull that has both.
 //!
-//!     bbtool livetest                  every pull with a capture: how live and the log differ
-//!     bbtool livetest STEM...          only these pulls (log stems, e.g. 20261018-022308)
-//!     bbtool livetest --import [DIR]   cut captures out of the addon's feed recordings first
-//!     bbtool livetest --save           take this run as the baseline the next runs are held to
+//! ```text
+//! bbtool livetest                  every pull with a capture: how live and the log differ
+//! bbtool livetest STEM...          only these pulls (log stems, e.g. 20261018-022308)
+//! bbtool livetest --import [DIR]   cut captures out of the addon's feed recordings first
+//! bbtool livetest --save           take this run as the baseline the next runs are held to
+//! ```
 //!
 //! A capture is `<log>.live.json` next to the arcdps log: the events the addon last judged live for
 //! that pull, saved when the log came in with "Save live captures" on in the addon's options.
@@ -12,11 +14,15 @@
 //!
 //! For each pull, two things are held side by side:
 //!   casts   the record the live path puts back from the feed against the log's. A log cast is
-//!           "found" when live has a cast of the same skill within 300 ms, "missed" when not,
-//!           "unseen" when live can't see that skill at all (not in the live cast table: heals, kit
-//!           swaps). Live casts with no log cast are "extra". Zero-length log casts are left out.
+//! ```text
+//!       "found" when live has a cast of the same skill within 300 ms, "missed" when not,
+//!       "unseen" when live can't see that skill at all (not in the live cast table: heals, kit
+//!       swaps). Live casts with no log cast are "extra". Zero-length log casts are left out.
+//! ```
 //!   judged  the build on the live record (as the addon runs it) against the same build on the log:
-//!           Scrapper cycles (length, hits against the bench), Berserker chips.
+//! ```text
+//!       Scrapper cycles (length, hits against the bench), Berserker chips.
+//! ```
 //!
 //! With a baseline (`--save`, kept next to the logs as livetest_baseline.json) a pull that finds
 //! fewer casts or more extra ones than before is marked WORSE and the run exits with 1.

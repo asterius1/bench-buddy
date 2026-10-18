@@ -1,5 +1,5 @@
 //! A running pull as `rot::read()` gives a log, built from the live arcdps feed, so that a build
-//! judges a live pull with the code that judges its logs (`core/live.py`).
+//! judges a live pull with the code that judges its logs.
 //!
 //! The live feed carries your hits, buff changes and condition ticks but no cast starts or stops and
 //! no weapon swaps (addon/README.md). So casts are put back from hits: a skill's first hit lands
@@ -23,7 +23,7 @@ use crate::omap::OMap;
 use crate::rot::{Cast, Record};
 
 const PULSE_TOL: i64 = 60;
-pub const TABLE: &str = include_str!("../../../core/livecasts.json");
+pub const TABLE: &str = include_str!("../livecasts.json");
 
 /// How one skill's casts are put back.
 #[derive(Clone, Debug)]

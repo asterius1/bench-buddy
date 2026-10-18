@@ -117,7 +117,7 @@ impl Live {
     }
 }
 
-/// Every event of yours on both feeds, as JSON Lines in the format `tools/feedcheck.py` reads.
+/// Every event of yours on both feeds, as JSON Lines in the format `bbtool feedcheck` reads.
 pub struct Recorder {
     out: BufWriter<File>,
     t0: Instant,

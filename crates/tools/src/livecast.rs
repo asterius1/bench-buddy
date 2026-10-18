@@ -1,6 +1,8 @@
 //! Casts from hits alone, the way the addon has to do it live.
 //!
-//!     bbtool livecast [SESSION_DIR]
+//! ```text
+//! bbtool livecast [SESSION_DIR]
+//! ```
 //!
 //! The live arcdps feed carries your hits but no casts (`bbtool feedcheck`). Every damaging skill's
 //! first hit lands a fixed time after its cast starts, so a cast can be put back from its first hit.
@@ -8,7 +10,7 @@
 //! 1. From every golem log of every build it measures per skill the time from cast start to first hit
 //!    (median), from first to last hit of one cast (95th percentile, the window inside which further
 //!    hits belong to the same cast) and your cast length (median), and writes them to the live cast
-//!    table, `core/livecasts.json`. Skills that do no damage are put back from a buff they put on you
+//!    table, `crates/core/livecasts.json`. Skills that do no damage are put back from a buff they put on you
 //!    at a fixed time after the cast starts (found by `signatures()` for any build, two buffs together
 //!    when one alone also comes from elsewhere, as Superspeed does).
 //! 2. On a recording of the live feed it puts the casts back as the addon does and checks each
@@ -46,7 +48,7 @@ fn med_round(v: &[i64]) -> i64 {
 }
 
 pub fn table_path(root: &Path) -> PathBuf {
-    root.join("core").join("livecasts.json")
+    root.join("crates").join("core").join("livecasts.json")
 }
 
 type SigKey = (i64, u32);
@@ -272,7 +274,7 @@ pub fn run(args: &[String], root: &Path) -> Result<(), String> {
     let path = table_path(root);
     let raw = Value::Object(table.clone());
     std::fs::write(&path, dumps(&raw, 1) + "\n").map_err(|e| e.to_string())?;
-    println!("{} skills -> core\\livecasts.json", table.len());
+    println!("{} skills -> crates\\core\\livecasts.json", table.len());
     let sess = feed::session_arg(args.first())?;
     let events = feed::feed_events(&sess.join("combat.jsonl"));
     if events.is_empty() {

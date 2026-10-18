@@ -1,4 +1,5 @@
-//! The bench rotation as a cheat sheet (`bench_sheet()` in scrap.py and `sheet()` in panel.py).
+//! The bench rotation as a cheat sheet: `bench_sheet()` for the page (`/api/scrapper/bench`,
+//! bench.html) and `sheet()` for the addon (`/api/scrapper/sheet`).
 
 use std::collections::{BTreeSet, HashMap};
 
@@ -170,7 +171,7 @@ struct Built {
 }
 
 /// The bench's cycles as rows of three mini loops of tokens, each skill marked usual or not against
-/// the same mini loop in the other full cycles (`bench_sheet()` in scrap.py).
+/// the same mini loop in the other full cycles.
 fn build(bench: &Bench) -> Built {
     let log = &bench.log;
     let inst: Vec<(i64, f64)> = log["players"][0]["rotation"].as_array().into_iter().flatten()
@@ -254,7 +255,8 @@ fn build(bench: &Bench) -> Built {
         }
     }
     let avg = |i: usize, x: i64| order.get(&(i, x)).map(|v| v.iter().sum::<usize>() as f64 / v.len() as f64).unwrap_or(99.0);
-    // ties in position keep the id order; Python keeps its set order, the same on the bench (judgeparity.py)
+    // ties in position keep the id order (the Python checker kept its set order: only the instants,
+    // all at the end of their column, came out in another order)
     let usual_list: Vec<Vec<i64>> = (0..3).map(|i| {
         let mut v: Vec<i64> = usual[i].iter().copied().collect();
         v.sort_by(|a, b| avg(i, *a).partial_cmp(&avg(i, *b)).unwrap());
@@ -287,7 +289,7 @@ fn build(bench: &Bench) -> Built {
     Built { rows: out, usual: usual_list, structure, full: full.len() }
 }
 
-/// The bench rotation for the addon's cheat sheet view (panel.py's `sheet()`): the structure on
+/// The bench rotation for the addon's cheat sheet view: the structure on
 /// top, then rows of three cells of just the filler.
 pub fn sheet(bench: &Bench) -> Value {
     let sm = &bench.log["skillMap"];

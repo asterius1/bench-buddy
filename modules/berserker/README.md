@@ -7,8 +7,8 @@ http://127.0.0.1:8771/berserker (`run.bat`).
 
 | File | What it does |
 |---|---|
-| `local.py` | The analysis: `pull()`, `compare()` (the main report), `history()`, `damage()` (opening seconds), `icons()`, `cooldown_window()`. |
-| `baseline.py` | Per-skill expectations: hits a full cast lands (`EXPECT`), the bench's cast lengths, which casts fail. |
+| `crates/berserker/src/lib.rs` | The analysis: `pull()`, `compare()` (the main report), `summary_row()` (history), `damage()` (opening seconds), `icons()`, `cooldown_window()`, `live()`. |
+| `crates/berserker/src/baseline.rs` | Per-skill expectations: hits a full cast lands (`expect()`), the bench's cast lengths, which casts fail. |
 | `page.html` | The page at `/`. Opens on the Splits view; tabs for Grid, Time axis, Coach and Detail. |
 | `views/*.html` | The Splits, Grid, Time axis and Coach views, served at `/view/<name>?log=<stem>` with the pull's `compare()` data inlined. |
 | `cache/` | The bench log (`log.json`, downloaded once), icons and one summary per pull. Not in git. |
@@ -38,7 +38,7 @@ close. Sections are matched in order with `difflib`, fillers as a set.
   same point. The next cast is expected at the later of the bench's pace and that skill's ready time;
   the last cast before a swap is judged by when the first skill on the other weapon starts. More than
   50 ms late flags it.
-- **Hits:** fewer hits than `EXPECT` within 1 s of the cast's end (H).
+- **Hits:** fewer hits than `expect()` (baseline.rs) within 1 s of the cast's end (H).
 - **Buff:** Flames of War or Blood Reckoning ending before its buff landed (E).
 - **Missed / extra:** a bench cast you skipped shows faded; a cast the bench has no match for is "extra".
 - Section and loop times against the bench: green to +0.05 s, amber to +0.30 s, red above.

@@ -1,4 +1,4 @@
-//! The scrapper pull reduced to what the Nexus addon draws (`modules/scrapper/panel.py`): per cycle
+//! The scrapper pull reduced to what the Nexus addon draws (`addon/src/scrap.rs`): per cycle
 //! three whirl cells and the cycle split, every icon and card already decided. Texts are final.
 
 use serde_json::{json, Value};

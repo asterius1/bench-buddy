@@ -529,9 +529,13 @@ fn cooldowns(cyc: &Cycle) -> Vec<Cd> {
     out
 }
 
-/// The bench cycle for cycle k: the same number; past the bench's last full cycle, two earlier
-/// (Function Gyro and Grenade Barrage, 25 s, alternate between cycles).
-fn bench_for(k: usize, n: usize) -> Option<usize> {
+/// The bench cycle for cycle k: the same number. Past the bench's last full cycle, two earlier
+/// (Function Gyro and Grenade Barrage, 25 s, alternate between cycles), except for your own last
+/// cycle: it ended with the pull, as the bench's last one did, so it gets the bench's same number.
+fn bench_for(k: usize, n: usize, last: bool) -> Option<usize> {
+    if last && k + 1 == n {
+        return Some(k);
+    }
     let mut k = k;
     while k + 1 >= n && k > 2 {
         k -= 2;
@@ -692,7 +696,7 @@ pub fn compare(rec: &rot::Record, bench: &Bench) -> Option<Value> {
     let (t0, rt0) = (me.t0, bs.t0);
     let mut out_rows = vec![];
     for (k, cy) in mine.iter().enumerate() {
-        let rn = bench_for(k, refs.len());
+        let rn = bench_for(k, refs.len(), cy.len.is_none());
         let rc = rn.map(|i| &refs[i]);
         let mut row = Map::new();
         row.insert("n".into(), k.into());

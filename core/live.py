@@ -19,6 +19,12 @@ a log, where only its end is seen) and is not among the casts.
 
 A module can adjust the record in a `live(record)` function (the Berserker puts back its weapon
 swaps); without one the record is used as it is.
+
+    capture_of(log)                where the live capture of a pull is kept: `<log>.live.json`
+
+With "Save live captures" on in the addon, the events of each pull as the judge last saw them are
+saved next to its log (core/live_server.py `/capture`), so `tools/livetest.py` can hold the live
+path against the log of the same pull.
 """
 import json
 from pathlib import Path
@@ -26,6 +32,12 @@ from pathlib import Path
 TABLE = Path(__file__).resolve().parent / "livecasts.json"
 PULSE_TOL = 60
 _table = {}
+
+
+def capture_of(log):
+    """The live capture saved for a log: `<stem>.live.json` next to it."""
+    log = Path(log)
+    return log.with_name(log.stem + ".live.json")
 
 
 def table(elite=None):

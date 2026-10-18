@@ -65,6 +65,12 @@ pub struct State {
     recorder: Option<live::Recorder>,
     pub fill: String,
     dir: Option<PathBuf>,
+    /// settings.json as read, so that saving one setting keeps the others ("repo")
+    settings: Value,
+    /// "Save live captures": each pull's live events are saved next to its log for tools/livetest.py
+    pub capture: bool,
+    /// the last capture: when, and where it went or what went wrong
+    pub capture_note: Option<(Instant, String)>,
     /// the checkout from settings.json; None asks the running checker
     repo: Option<PathBuf>,
     /// the running pull as judged live; shown while following the newest pull
@@ -178,9 +184,41 @@ impl State {
         if let Some(v) = &self.live_raw {
             self.live_report = report::digest(v, &self.fill);
         }
-        if let Some(d) = &self.dir {
-            let _ = std::fs::write(d.join("settings.json"), serde_json::json!({"fill": self.fill}).to_string());
+        self.save_setting("fill", self.fill.clone().into());
+    }
+
+    /// Sets one key of settings.json and writes it, keeping the others.
+    fn save_setting(&mut self, key: &str, v: Value) {
+        if !self.settings.is_object() {
+            self.settings = serde_json::json!({});
         }
+        self.settings[key] = v;
+        if let Some(d) = &self.dir {
+            let _ = std::fs::write(d.join("settings.json"), self.settings.to_string());
+        }
+    }
+
+    /// Turns "Save live captures" on or off, and remembers it.
+    pub fn set_capture(&mut self, on: bool) {
+        self.capture = on;
+        self.save_setting("capture", on.into());
+    }
+
+    /// The running pull's capture for `core/live_server.py` `/capture`, when it has one: the events
+    /// last sent to the judge and what was drawn of them.
+    fn capture_body(&self, log: &str) -> Option<String> {
+        if !self.capture || self.live.hits == 0 || self.live.first_hit() == self.closed_pull {
+            return None;
+        }
+        let (kind, shown) = match (&self.live_raw, &self.live_scrap) {
+            (Some(d), _) => ("berserker", d.clone()),
+            (None, Some(d)) => ("scrapper", d.clone()),
+            _ => ("", Value::Null),
+        };
+        let mut body = self.live.to_json(self.self_elite);
+        body["log"] = log.into();
+        body["shown"] = serde_json::json!({"kind": kind, "data": shown});
+        Some(body.to_string())
     }
 }
 
@@ -241,6 +279,7 @@ fn load() {
         .unwrap_or_else(|| "budget".into());
     // where core/live_server.py is: settings.json may name a checkout, else the running checker says
     let repo = settings["repo"].as_str().map(PathBuf::from);
+    let capture = settings["capture"].as_bool().unwrap_or(false);
     *lock(&STATE) = Some(State {
         raw: None,
         report: None,
@@ -250,6 +289,9 @@ fn load() {
         recorder,
         fill,
         dir,
+        settings,
+        capture,
+        capture_note: None,
         repo,
         live_raw: None,
         live_report: None,
@@ -369,6 +411,7 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
         return Ok(());
     }
     let stem = if sl > bl { sl } else { bl };
+    let mut capture = None;
     if stem != latest {
         let mut hist = hist_of(&get_json("/api/history")?, "berserker", "loops");
         if !sl.is_empty() {
@@ -377,6 +420,9 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
         hist.sort_by(|a, b| a.log.cmp(&b.log));
         let first = latest.is_empty();
         *latest = stem.to_string();
+        if !first {
+            capture = with(|s| s.capture_body(stem)).flatten();
+        }
         with(|s| {
             s.history = hist;
             s.latest = stem.to_string();
@@ -389,6 +435,14 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
                 s.live_scrap = None;
             }
         });
+    }
+    if let Some(body) = capture {
+        let note = match report::post(JUDGE, "/capture", &body) {
+            Ok(t) => serde_json::from_str::<Value>(&t).ok().and_then(|v| v["saved"].as_str().map(|p| format!("saved {p}")))
+                .unwrap_or_else(|| format!("not saved: {t}")),
+            Err(e) => format!("not saved: {e}"),
+        };
+        with(|s| s.capture_note = Some((Instant::now(), note)));
     }
     let target = with(|s| s.selected.clone()).flatten().unwrap_or_else(|| latest.clone());
     if target == *shown {
@@ -571,6 +625,16 @@ fn options(ui: &Ui) {
     if ui.checkbox("Live row while a pull runs", &mut lv) {
         SHOW_LIVE.store(lv, Ordering::Relaxed);
     }
+    with(|s| {
+        let mut cap = s.capture;
+        if ui.checkbox("Save live captures next to the arcdps logs", &mut cap) {
+            s.set_capture(cap);
+        }
+        ui.text_disabled("What the live judge saw of each pull, as <log>.live.json, for tools/livetest.py. Stays on this PC.");
+        if let Some((t, n)) = &s.capture_note {
+            ui.text_disabled(format!("Last capture {}: {n}", ago(Some(*t))));
+        }
+    });
     ui.text_disabled(format!("Reads the checker on {CHECKER}; start it with run.bat."));
 }
 

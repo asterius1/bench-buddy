@@ -42,6 +42,14 @@ module judges the pull as it judges a log, so a module that reads its pulls thro
 `core/evtc_rot.py` gets live with no code of its own; `tools/livereplay.py` holds a recording
 against the logs (a Scrapper's cycle lengths came out within 10 ms).
 
+**Live captures** (off by default, in the addon's options in Nexus): when a pull's log comes in,
+the events the addon last sent the judge for it, and what it drew, are saved next to the log as
+`<log>.live.json`. Nothing leaves the PC. `python tools/livetest.py` then holds the live path against
+the log for every pull that has both: casts found, missed and extra per skill, and whether the
+build's module judged the pull the same. `--import` cuts captures out of the older feed recordings
+in `sessions/`; `--save` keeps the run as a baseline, and later runs exit with 1 when a pull got
+worse.
+
 The addon starts the judge with `pythonw` when nothing answers; it exits after 15 minutes idle.
 When the log arrives, the real report replaces the live one. The title row shows the live state
 (grey ready, green judging, amber waiting, red with the error); errors go to

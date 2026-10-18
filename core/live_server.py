@@ -9,6 +9,10 @@ judges it as it judges a log: `evtc_rot.read` answers with the live record while
 So any module that reads its pulls through evtc_rot judges live pulls too, with no code of its own.
 A module may adjust the record first in `live(record)` (the Berserker puts back its weapon swaps).
 
+With "Save live captures" on, the addon POSTs to /capture, when a pull's log comes in, the events
+it last sent for that pull and what it drew of them: {"log": stem, "elite", "events", "shown"}. They
+are saved next to the log as `<stem>.live.json` (core/live.py `capture_of`) for tools/livetest.py.
+
 What comes back is what the addon draws for a log of that build: {"kind": "berserker", "data":
 /api/compare} or {"kind": "scrapper", "data": /api/scrapper/panel}; another module's compare()
 as {"kind": its ROUTE}. Unknown elite: {"kind": null}.
@@ -83,6 +87,19 @@ def compare_live(body):
             evtc_rot.read = read
 
 
+def save_capture(body):
+    """Saves a pull's live capture next to its log; {"saved": path}."""
+    stem = Path(str(body.get("log", ""))).name
+    log = evtc_rot.GOLEM / f"{stem}.zevtc"
+    if not stem or not log.is_file():
+        raise ValueError(f"no golem log {stem!r}")
+    out = live.capture_of(log)
+    keep = {k: body.get(k) for k in ("log", "elite", "events", "shown")}
+    out.write_text(json.dumps({**keep, "source": "addon", "saved": time.strftime("%Y-%m-%d %H:%M:%S")}),
+                   encoding="utf8")
+    return {"saved": str(out)}
+
+
 class H(BaseHTTPRequestHandler):
     def send(self, code, body):
         b = body.encode()
@@ -101,7 +118,10 @@ class H(BaseHTTPRequestHandler):
         try:
             n = int(self.headers.get("Content-Length", 0))
             live = json.loads(self.rfile.read(n))
-            self.send(200, json.dumps(compare_live(live)))
+            if self.path == "/capture":
+                self.send(200, json.dumps(save_capture(live)))
+            else:
+                self.send(200, json.dumps(compare_live(live)))
         except Exception as e:  # noqa: BLE001
             try:
                 CACHE.mkdir(exist_ok=True)

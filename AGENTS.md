@@ -71,6 +71,9 @@ belongs in `core/`, say so and keep it general.
   `tools/whatlog.py` prints the one in a log.
 - **The live feeds** carry no casts or swaps; hits come on the local feed within 20 ms and on the
   area feed 2.65 s late with exact times; buffs only on the area feed (`addon/README.md`).
+- **Live vs log:** `python tools/livetest.py` replays every saved live capture (`<log>.live.json`
+  next to the log) and compares it with the log. Run it after changing `core/live.py`,
+  `core/livecasts.json` or a module's judging.
 
 ## How to work here
 

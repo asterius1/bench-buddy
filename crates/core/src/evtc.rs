@@ -24,6 +24,8 @@ pub struct Event {
     pub skill: u32,
     pub buff: u8,
     pub result: u8,
+    pub activation: u8,
+    pub buffremove: u8,
     pub sc: u8,
 }
 
@@ -145,6 +147,8 @@ pub fn load(path: &Path) -> Result<Log, String> {
             skill: u32_at(&d, b + 36),
             buff: d[b + 49],
             result: d[b + 50],
+            activation: d[b + 51],
+            buffremove: d[b + 52],
             sc: d[b + 56],
         });
         b += 64;

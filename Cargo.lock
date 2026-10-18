@@ -78,6 +78,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bbtool"
+version = "0.1.0"
+dependencies = [
+ "bb_app",
+ "bb_berserker",
+ "bb_core",
+ "bb_scrapper",
+ "serde_json",
+]
+
+[[package]]
 name = "bench_buddy"
 version = "0.1.0"
 dependencies = [

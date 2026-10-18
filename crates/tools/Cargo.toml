@@ -1,0 +1,12 @@
+[package]
+name = "bbtool"
+description = "Bench Buddy's measuring tools: what a log holds, what the live feed carries, the live cast table, live against the log"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { workspace = true }
+bb_core = { workspace = true }
+bb_berserker = { workspace = true }
+bb_scrapper = { workspace = true }
+bb_app = { workspace = true }

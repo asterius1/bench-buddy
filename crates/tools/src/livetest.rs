@@ -193,6 +193,8 @@ fn one(path: &Path, app: &App) -> Result<Result<One, String>, String> {
     if kind == "berserker" {
         let b = app.bers()?;
         rec = rec.map(|r| bb_berserker::live(r, &b));
+    } else {
+        rec = rec.map(bb_scrapper::live);
     }
     let empty = vec![];
     let got_casts = rec.as_ref().map(|r| &r.casts).unwrap_or(&empty);

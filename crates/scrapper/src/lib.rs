@@ -799,6 +799,47 @@ pub fn icons(cache: &Path, bench: &Bench) -> Value {
     kit::icons(cache, &bench.log["skillMap"], &[ENDO, DODGE, 31248, 6164, 6162, 6166], &[], &[(-37, 6166)])
 }
 
+/// A mine "cast" put back live this long inside another cast is not one (see `live()`).
+const MINE_OVERLAP_MS: i64 = 100;
+
+/// The live record made ready for compare(). Mines placed before the pull (Throw Mine, Mine Field)
+/// are detonated at its start, and live takes each blast for a cast a usual cast-to-hit time earlier,
+/// right on top of the opening Electro-whirl. A mine can't be thrown during another skill, so a mine
+/// cast that overlaps another cast by more than MINE_OVERLAP_MS (both at your usual length) is
+/// dropped: its hits then mark it as placed before the fight, as in a log (`precasts()`). The casts
+/// around it get back the length the dropped one had cut short.
+/// On 48 Scrapper captures (`bbtool livetest`): extra casts 42 to 13, the same casts found, the
+/// 12:39 pull of 18 October judged as its log (hits against the bench +4, live said +24).
+pub fn live(mut r: rot::Record) -> rot::Record {
+    let tab = bb_core::live::table(Some(SCRAPPER), None);
+    let usual = |id: i64| tab.get(&id).map(|x| if x.dur != 0 { x.dur } else { 300 }).unwrap_or(300);
+    let mine = |id: i64| id == THROWMINE || id == MINEFIELD;
+    let casts = &r.casts;
+    // only in the opening: later a mine's put-back start is too loose to judge by overlap
+    let opening = casts.iter().find(|c| c.id == EW).map_or(i64::MIN, |c| c.t + usual(EW));
+    let drop: Vec<bool> = casts.iter().map(|m| {
+        mine(m.id) && m.t < opening && casts.iter().any(|c| !mine(c.id)
+            && c.t < m.t + usual(m.id) - MINE_OVERLAP_MS && m.t < c.t + usual(c.id) - MINE_OVERLAP_MS)
+    }).collect();
+    let mut kept: Vec<rot::Cast> = r.casts.drain(..).zip(drop).filter(|(_, d)| !d).map(|(c, _)| c).collect();
+    for k in 0..kept.len() {
+        let mut d = usual(kept[k].id);
+        if let Some(n) = kept.get(k + 1) {
+            if 0 < n.t - kept[k].t && n.t - kept[k].t < d {
+                d = n.t - kept[k].t;
+            }
+        }
+        let c = &mut kept[k];
+        if c.dur != Some(d) {
+            c.dur = Some(d);
+            c.exp = d;
+            c.base = d;
+        }
+    }
+    r.casts = kept;
+    r
+}
+
 /// compare() straight from a log file.
 pub fn compare_log(path: &Path, bench: &Bench) -> Result<Option<Value>, String> {
     Ok(compare(&rot::read(path)?, bench))

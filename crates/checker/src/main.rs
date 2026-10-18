@@ -5,7 +5,8 @@
 //! run.bat                                   (cargo run --release -p checker, restarted on changes)
 //! checker [port] [--no-browser]             the pages
 //! checker api /api/scrapper/compare?log=<stem>   one route's JSON, without the server
-//! checker live <capture.live.json>          a saved live capture judged as the addon judges it
+//! checker live <capture.live.json> [--compare]   a saved live capture judged as the addon judges it
+//!                                   (--compare: a Scrapper capture's compare(), before the panel)
 //! checker snapshot [--save]                 every answer against a saved run (see snapshot.rs)
 //! ```
 //!
@@ -306,7 +307,15 @@ fn main() {
             let f = args.get(1).unwrap_or_else(|| fail("usage: checker live <capture.live.json>"));
             let body: Value = serde_json::from_str(&std::fs::read_to_string(f).unwrap_or_else(|e| fail(&e.to_string())))
                 .unwrap_or_else(|e| fail(&e.to_string()));
-            println!("{}", app.live(&body).unwrap_or_else(|e| fail(&e)));
+            if args.iter().any(|a| a == "--compare") && body["elite"].as_u64() == Some(bb_scrapper::SCRAPPER as u64) {
+                // the Scrapper's compare() of the live record, before the panel reduces it
+                let elite = Some(bb_scrapper::SCRAPPER);
+                let r = bb_core::live::record(&bb_core::live::events_of(&body["events"]), elite, &bb_core::live::table(elite, None));
+                let b = app.scrap().unwrap_or_else(|e| fail(&e));
+                println!("{}", r.and_then(|r| bb_scrapper::compare(&bb_scrapper::live(r), &b)).unwrap_or(Value::Null));
+            } else {
+                println!("{}", app.live(&body).unwrap_or_else(|e| fail(&e)));
+            }
             return;
         }
         _ => {}

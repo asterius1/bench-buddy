@@ -218,7 +218,7 @@ impl App {
                 let b = self.bers()?;
                 bb_berserker::compare(&bb_berserker::live(r, &b), None, &b)
             }
-            "scrapper" => bb_scrapper::compare(&r, &*self.scrap()?).map(bb_scrapper::panel::panel),
+            "scrapper" => bb_scrapper::compare(&bb_scrapper::live(r), &*self.scrap()?).map(bb_scrapper::panel::panel),
             _ => {
                 let m = self.simple.iter().find(|m| m.route() == kind).unwrap();
                 m.compare(&m.live(r), None)?

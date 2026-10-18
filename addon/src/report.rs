@@ -1,56 +1,8 @@
-//! The Splits report: fetched from the running checker (`core/serve.py`, `/api/compare`) and
-//! reduced to what the panel draws. The reduction follows `modules/berserker/views/splits.html`, including
+//! The Splits report: the Berserker's `/api/compare` (judged by `crates/app`) reduced to what the
+//! panel draws. The reduction follows `modules/berserker/views/splits.html`, including
 //! its four filler modes; when that page changes how it judges, change this with it.
 
 use serde_json::Value;
-use std::{
-    io::{Read, Write},
-    net::{TcpStream, ToSocketAddrs},
-    time::Duration,
-};
-
-/// Plain HTTP/1.0 GET against a local server; returns the body of a 200.
-pub fn get(addr: &str, path: &str) -> Result<String, String> {
-    request(addr, &format!("GET {path} HTTP/1.0\r\nHost: {addr}\r\n\r\n"))
-}
-
-/// POST of a JSON body; returns the body of a 200.
-pub fn post(addr: &str, path: &str, body: &str) -> Result<String, String> {
-    request(
-        addr,
-        &format!(
-            "POST {path} HTTP/1.0\r\nHost: {addr}\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
-            body.len()
-        ),
-    )
-}
-
-/// The error text when nothing answers on the port.
-pub const REFUSED: &str = "refused";
-
-fn request(addr: &str, req: &str) -> Result<String, String> {
-    let sock = addr
-        .to_socket_addrs()
-        .map_err(|e| e.to_string())?
-        .next()
-        .ok_or("no address")?;
-    // Windows answers a closed local port only after retrying for about 2 s, so a connect that
-    // times out is taken as nothing listening, the same as a refusal
-    let mut s = TcpStream::connect_timeout(&sock, Duration::from_millis(500)).map_err(|_| REFUSED.to_string())?;
-    s.set_read_timeout(Some(Duration::from_secs(10))).ok();
-    s.write_all(req.as_bytes()).map_err(|e| e.to_string())?;
-    let mut buf = Vec::new();
-    s.read_to_end(&mut buf).map_err(|e| e.to_string())?;
-    let text = String::from_utf8_lossy(&buf);
-    let (head, body) = text.split_once("\r\n\r\n").ok_or("bad response")?;
-    if !head.starts_with("HTTP/1.0 200") && !head.starts_with("HTTP/1.1 200") {
-        // the status line, and the server's own error text when it sent one
-        let first = head.lines().next().unwrap_or("");
-        let why = serde_json::from_str::<Value>(body).ok().and_then(|v| v["error"].as_str().map(String::from));
-        return Err(why.map_or(first.to_string(), |w| format!("{first}: {w}")));
-    }
-    Ok(body.to_string())
-}
 
 /// How the fillers are judged, as the page's buttons: by how late the closing SE starts after it
 /// is ready again, by that lateness against the bench's, only the whole longbow visit, or by
@@ -444,17 +396,3 @@ mod tests {
     }
 }
 
-#[cfg(test)]
-mod http_tests {
-    /// `BB_CHECKER=1 cargo test` asks the running checker on 8771.
-    #[test]
-    fn talks_to_the_checker() {
-        if std::env::var("BB_CHECKER").is_err() {
-            return;
-        }
-        let b = super::get("127.0.0.1:8771", "/api/latest").expect("latest");
-        assert!(b.contains("latest"), "{b}");
-        let h = super::get("127.0.0.1:8771", "/api/history").expect("history");
-        assert!(serde_json::from_str::<serde_json::Value>(&h).unwrap().is_array());
-    }
-}

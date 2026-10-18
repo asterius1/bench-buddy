@@ -10,4 +10,5 @@ crate-type = ["cdylib"]
 [dependencies]
 serde_json = { workspace = true }
 nexus = { git = "https://github.com/zerthox/nexus-rs", rev = "51bff5ab38ad11332316448b452ece1b773018cd", features = ["arc"] }
-
+bb_core = { workspace = true }
+bb_app = { workspace = true }

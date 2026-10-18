@@ -1,13 +1,12 @@
 //! Bench Buddy: the golem checker's panel inside the game (Condi Berserker splits, Power Scrapper grid).
 //!
-//! The analysis stays in the checker (`core/serve.py` on 127.0.0.1:8771): a background
-//! thread asks it for the newest golem log and its report, and the panel (`panel.rs`) draws that
-//! the way `modules/berserker/views/splits.html` does, for the newest pull or any earlier one picked at the
+//! The judging is the checker's own (`crates/app`), run here in the addon: a background thread
+//! looks for the newest golem log and judges it, and the panel (`panel.rs`) draws that the way
+//! `modules/berserker/views/splits.html` does, for the newest pull or any earlier one picked at the
 //! top. While a pull runs, its splits fill in: your casts put back from your hits on the arcdps
-//! feed (`live.rs`, about 2.7 s behind) are judged by `core/live_server.py` with the checker's own
-//! code; the addon starts that server when it is not running. Reads nothing from game memory;
-//! writes a recording of your own feed events to `<GW2>/addons/bench_buddy/sessions/` for
-//! `tools/feedcheck.py`.
+//! feed (`live.rs`, about 2.7 s behind) are judged with the same code. Nothing else needs to run.
+//! Reads nothing from game memory; writes a recording of your own feed events to
+//! `<GW2>/addons/bench_buddy/sessions/` for `bbtool feedcheck`.
 
 mod live;
 mod panel;
@@ -43,8 +42,20 @@ nexus::export! {
     flags: AddonFlags::None,
 }
 
-pub const CHECKER: &str = "127.0.0.1:8771";
-const JUDGE: &str = "127.0.0.1:8772";
+static APP: std::sync::OnceLock<bb_app::App> = std::sync::OnceLock::new();
+
+/// The judging; its downloads and per-pull summaries go to `<GW2>/addons/bench_buddy/cache/`.
+pub fn app() -> &'static bb_app::App {
+    APP.get_or_init(|| {
+        // the tests run without Nexus
+        let dir = if cfg!(test) {
+            std::env::temp_dir().join("bench_buddy_test_cache")
+        } else {
+            get_addon_dir("bench_buddy").map(|d| d.join("cache")).unwrap_or_else(|_| PathBuf::from("bench_buddy_cache"))
+        };
+        bb_app::App::new(bb_app::Caches::Flat(dir))
+    })
+}
 
 /// One earlier pull, for the picker.
 pub struct Hist {
@@ -65,14 +76,12 @@ pub struct State {
     recorder: Option<live::Recorder>,
     pub fill: String,
     dir: Option<PathBuf>,
-    /// settings.json as read, so that saving one setting keeps the others ("repo")
+    /// settings.json as read, so that saving one setting keeps the others
     settings: Value,
     /// "Save live captures": each pull's live events are saved next to its log for tools/livetest.py
     pub capture: bool,
     /// the last capture: when, and where it went or what went wrong
     pub capture_note: Option<(Instant, String)>,
-    /// the checkout from settings.json; None asks the running checker
-    repo: Option<PathBuf>,
     /// the running pull as judged live; shown while following the newest pull
     live_raw: Option<Value>,
     pub live_report: Option<Report>,
@@ -112,8 +121,6 @@ pub struct LiveStatus {
     posts: u32,
     oks: u32,
     fails: u32,
-    starts: u32,
-    started_at: Option<Instant>,
 }
 
 /// One status: a short line, its tone (0 muted, 1 ok, 2 waiting, 3 bad) and the details.
@@ -154,21 +161,20 @@ impl State {
         } else if in_pull && st.ok_at.map_or(false, |t| t.elapsed().as_secs() < 4) {
             (format!("Live \u{2022} judged {}", ago(st.ok_at)), 1)
         } else if in_pull {
-            ("Live: waiting for the judge".to_string(), 2)
+            ("Live: waiting for the first judging".to_string(), 2)
         } else {
             (format!("Live ready \u{2022} last hit {}", ago(self.live.last_arrival)), 0)
         };
         let details = vec![
             format!("Your feed events: {}, last {}", st.feed_events, ago(st.feed_at)),
             format!("Last hit {}; this pull: {} hits{}", ago(self.live.last_arrival), self.live.hits, if closed { ", its log is in" } else { "" }),
-            format!("Sent to the judge {} times, last {}", st.posts, ago(st.posted_at)),
+            format!("Judging started {} times, last {}", st.posts, ago(st.posted_at)),
             format!("Judged {} times, last {}; failed {}", st.oks, ago(st.ok_at), st.fails),
             match &st.err {
                 Some((t, e)) => format!("Last error {}: {e}", ago(Some(*t))),
                 None => "No errors".into(),
             },
-            format!("Judge started {} times by the addon, last {}", st.starts, ago(st.started_at)),
-            format!("Judge: {JUDGE} (core\\live_server.py); errors in core\\cache\\live_server.log"),
+            format!("Golem logs from {}", bb_core::rot::logs_dir().display()),
         ];
         LiveLine { text, tone, details }
     }
@@ -204,9 +210,8 @@ impl State {
         self.save_setting("capture", on.into());
     }
 
-    /// The running pull's capture for `core/live_server.py` `/capture`, when it has one: the events
-    /// last sent to the judge and what was drawn of them.
-    fn capture_body(&self, log: &str) -> Option<String> {
+    /// The running pull's capture, when it has one: the events last judged and what was drawn of them.
+    fn capture_body(&self, log: &str) -> Option<Value> {
         if !self.capture || self.live.hits == 0 || self.live.first_hit() == self.closed_pull {
             return None;
         }
@@ -218,7 +223,7 @@ impl State {
         let mut body = self.live.to_json(self.self_elite);
         body["log"] = log.into();
         body["shown"] = serde_json::json!({"kind": kind, "data": shown});
-        Some(body.to_string())
+        Some(body)
     }
 }
 
@@ -266,6 +271,10 @@ fn load() {
         nexus::log::log(nexus::log::LogLevel::Critical, "Bench Buddy", format!("{info}\n{trace:#}"));
     }));
     let dir = get_addon_dir("bench_buddy").ok();
+    // arcdps.ini says where the logs are
+    if let Ok(a) = get_addon_dir("arcdps") {
+        bb_core::rot::set_arcdps_dir(a);
+    }
     let recorder = dir.as_ref().and_then(|d| live::Recorder::start(d).ok());
     let settings = dir
         .as_ref()
@@ -277,14 +286,12 @@ fn load() {
         .map(String::from)
         .filter(|m| report::FILL_MODES.iter().any(|(k, _)| k == m))
         .unwrap_or_else(|| "budget".into());
-    // where core/live_server.py is: settings.json may name a checkout, else the running checker says
-    let repo = settings["repo"].as_str().map(PathBuf::from);
     let capture = settings["capture"].as_bool().unwrap_or(false);
     *lock(&STATE) = Some(State {
         raw: None,
         report: None,
         icons: HashMap::new(),
-        status: "waiting for the checker (run.bat)".into(),
+        status: "looking for golem logs".into(),
         live: live::Live::default(),
         recorder,
         fill,
@@ -292,7 +299,6 @@ fn load() {
         settings,
         capture,
         capture_note: None,
-        repo,
         live_raw: None,
         live_report: None,
         live_scrap: None,
@@ -359,8 +365,8 @@ fn failed_note(ui: &Ui) {
         });
 }
 
-//// Asks the checker every 2 s for the newest log, and fetches the report of the pull to show
-/// (the picked one, else the newest) when that changes.
+/// Looks every 2 s for the newest log, and judges the pull to show (the picked one, else the
+/// newest) when that changes.
 fn poll() {
     let mut shown = String::new();
     let mut latest = String::new();
@@ -372,7 +378,7 @@ fn poll() {
         }
         if tick % 20 == 0 || want.is_some() {
             if let Err(e) = poll_once(&mut shown, &mut latest) {
-                with(|s| s.status = format!("checker not reachable on {CHECKER} ({e})"));
+                with(|s| s.status = e);
             }
         }
         tick += 1;
@@ -380,8 +386,11 @@ fn poll() {
     }
 }
 
-fn get_json(path: &str) -> Result<Value, String> {
-    serde_json::from_str(&report::get(CHECKER, path)?).map_err(|e| e.to_string())
+/// One of the checker's routes, answered here.
+pub fn get_json(path: &str) -> Result<Value, String> {
+    let (p, q) = path.split_once('?').unwrap_or((path, ""));
+    let q: HashMap<String, String> = q.split('&').filter_map(|kv| kv.split_once('=')).map(|(k, v)| (k.into(), v.into())).collect();
+    app().api(p, &q)?.ok_or_else(|| format!("no route {p}"))
 }
 
 fn hist_of(h: &Value, kind: &'static str, count: &str) -> Vec<Hist> {
@@ -437,9 +446,8 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
         });
     }
     if let Some(body) = capture {
-        let note = match report::post(JUDGE, "/capture", &body) {
-            Ok(t) => serde_json::from_str::<Value>(&t).ok().and_then(|v| v["saved"].as_str().map(|p| format!("saved {p}")))
-                .unwrap_or_else(|| format!("not saved: {t}")),
+        let note = match app().save_capture(&body) {
+            Ok(v) => format!("saved {}", v["saved"].as_str().unwrap_or("")),
             Err(e) => format!("not saved: {e}"),
         };
         with(|s| s.capture_note = Some((Instant::now(), note)));
@@ -498,61 +506,41 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
     Ok(())
 }
 
-/// While a pull runs, sends its casts to the live judge once a second when something is new.
+/// While a pull runs, judges it once a second when something is new.
 fn judge() {
     let mut sent = u64::MAX;
-    let mut spawned: Option<std::time::Instant> = None;
     while !STOP.load(Ordering::SeqCst) {
         std::thread::sleep(Duration::from_millis(250));
         let job = with(|s| {
             let fresh = s.live.in_pull() && s.live.first_hit() != s.closed_pull && s.live.hits > 0;
-            (fresh && s.live.version != sent).then(|| (s.live.to_json(s.self_elite).to_string(), s.live.version, s.repo.clone()))
+            (fresh && s.live.version != sent).then(|| (s.live.to_json(s.self_elite), s.live.version))
         })
         .flatten();
-        let Some((body, version, repo)) = job else { continue };
+        let Some((body, version)) = job else { continue };
         with(|s| {
             s.lstat.posted_at = Some(Instant::now());
             s.lstat.posts += 1;
         });
-        match report::post(JUDGE, "/compare", &body) {
-            Ok(text) => {
+        match app().live(&body) {
+            Ok(mut raw) => {
                 sent = version;
+                // {"kind": the build, "data": what the checker gives for a log of it}
                 with(|s| {
                     s.lstat.ok_at = Some(Instant::now());
                     s.lstat.oks += 1;
-                });
-                // {"kind": the build, "data": what the checker gives for a log of it}
-                if let Ok(mut raw) = serde_json::from_str::<Value>(&text) {
-                    with(|s| {
-                        let data = raw["data"].take();
-                        if s.live.first_hit() == s.closed_pull || !data.is_object() {
-                            return;
+                    let data = raw["data"].take();
+                    if s.live.first_hit() == s.closed_pull || !data.is_object() {
+                        return;
+                    }
+                    match raw["kind"].as_str() {
+                        Some("berserker") => {
+                            s.live_report = report::digest(&data, &s.fill);
+                            s.live_raw = Some(data);
                         }
-                        match raw["kind"].as_str() {
-                            Some("berserker") => {
-                                s.live_report = report::digest(&data, &s.fill);
-                                s.live_raw = Some(data);
-                            }
-                            Some("scrapper") => s.live_scrap = Some(data),
-                            _ => {}
-                        }
-                    });
-                }
-            }
-            Err(e) if e == report::REFUSED => {
-                let start = spawned.map_or(true, |t| t.elapsed().as_secs() > 20);
-                with(|s| {
-                    s.lstat.fails += 1;
-                    s.lstat.err = Some((Instant::now(), "judge not running, starting it".into()));
-                    if start {
-                        s.lstat.starts += 1;
-                        s.lstat.started_at = Some(Instant::now());
+                        Some("scrapper") => s.live_scrap = Some(data),
+                        _ => {}
                     }
                 });
-                if start {
-                    spawned = Some(Instant::now());
-                    start_judge(repo.as_deref());
-                }
             }
             Err(e) => {
                 with(|s| {
@@ -562,37 +550,6 @@ fn judge() {
             }
         }
         std::thread::sleep(Duration::from_millis(750));
-    }
-}
-
-/// Starts `core/live_server.py` with pythonw, without a window, from the checkout named in
-/// settings.json or else the one the running checker runs from (`/api/root`).
-fn start_judge(repo: Option<&std::path::Path>) {
-    use std::os::windows::process::CommandExt;
-    const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-    const DETACHED_PROCESS: u32 = 0x0000_0008;
-    let repo = match repo {
-        Some(r) => r.to_path_buf(),
-        None => match get_json("/api/root").ok().and_then(|v| v["root"].as_str().map(PathBuf::from)) {
-            Some(r) => r,
-            None => {
-                with(|s| s.lstat.err = Some((Instant::now(), "checker not running: start run.bat".into())));
-                return;
-            }
-        },
-    };
-    let script = repo.join("core").join("live_server.py");
-    if !script.exists() {
-        with(|s| s.lstat.err = Some((Instant::now(), format!("judge not found: {}", script.display()))));
-        return;
-    }
-    let r = std::process::Command::new("pythonw")
-        .arg(&script)
-        .current_dir(&repo)
-        .creation_flags(CREATE_NO_WINDOW | DETACHED_PROCESS)
-        .spawn();
-    if let Err(e) = r {
-        with(|s| s.lstat.err = Some((Instant::now(), format!("could not start the judge: {e}"))));
     }
 }
 
@@ -630,12 +587,12 @@ fn options(ui: &Ui) {
         if ui.checkbox("Save live captures next to the arcdps logs", &mut cap) {
             s.set_capture(cap);
         }
-        ui.text_disabled("What the live judge saw of each pull, as <log>.live.json, for tools/livetest.py. Stays on this PC.");
+        ui.text_disabled("What the live judging saw of each pull, as <log>.live.json, for bbtool livetest. Stays on this PC.");
         if let Some((t, n)) = &s.capture_note {
             ui.text_disabled(format!("Last capture {}: {n}", ago(Some(*t))));
         }
     });
-    ui.text_disabled(format!("Reads the checker on {CHECKER}; start it with run.bat."));
+    ui.text_disabled(format!("Golem logs from {}", bb_core::rot::logs_dir().display()));
 }
 
 fn frame(ui: &Ui) {
@@ -662,26 +619,10 @@ mod tests {
 }
 
 #[cfg(test)]
-mod judge_tests {
-    /// `BB_SPAWN=1 cargo test` starts the live judge as the addon does and asks it.
-    #[test]
-    fn starts_the_live_judge() {
-        if std::env::var("BB_SPAWN").is_err() {
-            return;
-        }
-        super::start_judge(None);
-        std::thread::sleep(std::time::Duration::from_secs(4));
-        let r = crate::report::get(super::JUDGE, "/");
-        assert!(r.is_ok(), "{r:?}");
-    }
-}
-
-#[cfg(test)]
 mod replay_tests {
-    /// `BB_REPLAY=<combat.jsonl> BB_ELITE=43 cargo test --release replay -- --nocapture` sends a
-    /// recorded feed's events to the running live judge as the addon does at the end of each pull
-    /// (a 12 s gap in your hits) and prints what came back. tools/livereplay.py does the same
-    /// against the logs.
+    /// `BB_REPLAY=<combat.jsonl> BB_ELITE=43 cargo test --release -p bench_buddy replay -- --nocapture`
+    /// judges a recorded feed's events as the addon does at the end of each pull (a 12 s gap in your
+    /// hits) and prints what came back. `bbtool livereplay` does the same against the logs.
     #[test]
     fn replay() {
         let Ok(path) = std::env::var("BB_REPLAY") else { return };
@@ -696,9 +637,8 @@ mod replay_tests {
         }
         let me = n.into_iter().max_by_key(|x| x.1).map(|x| x.0);
         let judge = |events: &[serde_json::Value]| {
-            let body = serde_json::json!({"elite": elite, "events": events}).to_string();
-            let text = crate::report::post(super::JUDGE, "/compare", &body).expect("judge");
-            let raw: serde_json::Value = serde_json::from_str(&text).unwrap();
+            let body = serde_json::json!({"elite": elite, "events": events});
+            let raw = crate::app().live(&body).expect("judge");
             let rows = raw["data"]["rows"].as_array().map_or(0, |r| r.len());
             println!("pull: {} events, judged as {}, {rows} rows", events.len(), raw["kind"]);
         };

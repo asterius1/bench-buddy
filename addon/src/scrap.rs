@@ -800,14 +800,14 @@ const _UNUSED: C = SEC_BG;
 
 #[cfg(test)]
 mod tests {
-    /// `BB_SCRAP=1 cargo test --release scrap -- --nocapture` reads the newest scrapper pull and the
-    /// sheet from the running checker and walks every field the view draws.
+    /// `BB_SCRAP=1 cargo test --release -p bench_buddy scrap -- --nocapture` judges the newest
+    /// scrapper pull and the sheet as the addon does and walks every field the view draws.
     #[test]
     fn scrap_fields() {
         if std::env::var("BB_SCRAP").is_err() {
             return;
         }
-        let get = |p: &str| -> serde_json::Value { serde_json::from_str(&crate::report::get(crate::CHECKER, p).unwrap()).unwrap() };
+        let get = |p: &str| -> serde_json::Value { crate::get_json(p).unwrap() };
         let latest = get("/api/scrapper/latest")["latest"].as_str().unwrap().to_string();
         let v = get(&format!("/api/scrapper/panel?log={latest}"));
         let mut icons = 0;

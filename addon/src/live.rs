@@ -1,9 +1,9 @@
 //! The live pull: your events on the arcdps area feed (hits, condition ticks, buff changes) since the
-//! pull started, sent as they are to the live judge, and a recording of the feed for checking it
+//! pull started, kept as they are for the live judging, and a recording of the feed for checking it
 //! against the log afterwards.
 //!
-//! The feed carries hits but no casts. `core/live.py` puts the casts back from the hits and
-//! `core/live_server.py` judges them with the build's own module, so nothing here knows a build.
+//! The feed carries hits but no casts. `bb_core::live` puts the casts back from the hits and the
+//! build's own crate judges them (`bb_app::App::live`), so nothing here knows a build.
 
 use serde_json::{json, Value};
 use std::{
@@ -111,7 +111,7 @@ impl Live {
         self.last_arrival.map_or(false, |t| t.elapsed().as_millis() < 15_000)
     }
 
-    /// What `core/live_server.py` judges.
+    /// What `bb_app::App::live` judges.
     pub fn to_json(&self, elite: u32) -> Value {
         json!({"elite": elite, "events": self.events.iter().map(|(_, v)| v).collect::<Vec<_>>()})
     }

@@ -543,13 +543,15 @@ fn ref_json(c: &Cast, rt0: f64) -> Value {
     json!({"id": c.id, "name": c.name, "dur": num(c.dur), "t": num(c.t - rt0)})
 }
 
-fn chip(it: Item, mine: &[Cast], refs: &[Cast], t0: f64, rt0: f64) -> Value {
+/// One chip. `moved`: the bench cast of yours, matched in another section of the mini loop (the
+/// bench casts it there), with that section's name.
+fn chip(it: Item, mine: &[Cast], refs: &[Cast], t0: f64, rt0: f64, moved: Option<(&Cast, &str)>) -> Value {
     let (c, r) = match it {
         Item::Ghost(g) => {
             let g = &refs[g];
             return json!({"id": g.id, "name": g.name, "kind": "ghost", "refDur": num(g.dur), "refT": num(g.t - rt0)});
         }
-        Item::Mine(c, r) => (&mine[c], r.map(|r| &refs[r])),
+        Item::Mine(c, r) => (&mine[c], r.map(|r| &refs[r]).or(moved.map(|m| m.0))),
     };
     let mut out = Map::new();
     out.insert("id".into(), c.id.into());
@@ -569,6 +571,10 @@ fn chip(it: Item, mine: &[Cast], refs: &[Cast], t0: f64, rt0: f64) -> Value {
         return Value::Object(out);
     }
     out.insert("kind".into(), if r.is_some() { "ok" } else { "extra" }.into());
+    if let Some((_, sec)) = moved {
+        out.insert("order".into(), sec.into());
+        flags.push("order");
+    }
     if let (Some(exp), Some(all)) = (hits(c.id), c.all) {
         if c.end_ok.unwrap_or(true) {
             out.insert("landed".into(), all.into());
@@ -699,7 +705,7 @@ pub fn compare(rec: &rot::Record, bench: &Bench) -> Option<Value> {
         if !cy.pre.is_empty() || (rc.is_some_and(|r| !r.pre.is_empty()) && k == 0) {
             let items = kit::match_casts(&cy.pre, rpre, true);
             row.insert("pre".into(), json!({
-                "chips": items.iter().map(|&it| chip(it, &cy.pre, rpre, t0, rt0)).collect::<Vec<_>>(),
+                "chips": items.iter().map(|&it| chip(it, &cy.pre, rpre, t0, rt0, None)).collect::<Vec<_>>(),
                 "ref": rpre.iter().filter(|c| !c.cut).map(|c| ref_json(c, rt0)).collect::<Vec<_>>()}));
         }
         let mut minis = vec![];
@@ -709,20 +715,61 @@ pub fn compare(rec: &rot::Record, bench: &Bench) -> Option<Value> {
                 minis.push(Value::Null);
                 continue;
             };
-            let mut secs = Map::new();
+            let empty = vec![];
             let has = |n: &str| m.section(n).is_some() || rm.is_some_and(|r| r.section(n).is_some());
-            for n in ["core", "fill", "burst"] {
-                if !has(n) {
-                    continue;
+            let mut parts: Vec<(&str, &Vec<Cast>, &Vec<Cast>, Vec<Item>)> = ["core", "fill", "burst"].into_iter()
+                .filter(|n| has(n))
+                .map(|n| {
+                    let cs = m.section(n).unwrap_or(&empty);
+                    let rcs = rm.and_then(|r| r.section(n)).unwrap_or(&empty);
+                    (n, cs, rcs, kit::match_casts(cs, rcs, n == "core"))
+                }).collect();
+            // The pull ended in this mini loop, so the bench's casts after the point you reached aren't
+            // missed yet. A bench cast you skipped is missed once you matched a later bench cast of the
+            // mini loop, or when the bench had finished the whole mini loop by the end of your pull.
+            if let (None, Some(rm)) = (m.len, rm) {
+                let done = rm.len.is_some_and(|l| l <= me.end - m.start);
+                let reached = parts.iter()
+                    .flat_map(|(_, _, rcs, items)| items.iter().filter_map(|it| match *it {
+                        Item::Mine(_, Some(r)) => Some(rcs[r].t),
+                        _ => None,
+                    }))
+                    .fold(f64::NEG_INFINITY, f64::max);
+                for (_, _, rcs, items) in parts.iter_mut() {
+                    items.retain(|it| done || !matches!(*it, Item::Ghost(g) if rcs[g].t > reached));
                 }
-                let empty = vec![];
-                let cs = m.section(n).unwrap_or(&empty);
-                let rcs = rm.and_then(|r| r.section(n)).unwrap_or(&empty);
-                let items = kit::match_casts(cs, rcs, n == "core");
-                secs.insert(n.into(), json!({
-                    "chips": items.iter().map(|&it| chip(it, cs, rcs, t0, rt0)).collect::<Vec<_>>(),
-                    "time": onum(m.times.get(&n).copied().flatten()),
-                    "refTime": onum(rm.and_then(|r| r.times.get(&n).copied().flatten())),
+            }
+            // A skill you cast in another section of the mini loop than the bench did (a filler
+            // before Shrapnel Grenade) is one cast out of order, not an extra and a miss: your cast
+            // takes the bench's from the other section, and the bench's no longer shows as missed.
+            let mut moved: HashMap<(usize, usize), (usize, usize)> = HashMap::new();
+            let mut taken: Vec<(usize, usize)> = vec![];
+            for a in 0..parts.len() {
+                for (i, it) in parts[a].3.iter().enumerate() {
+                    let Item::Mine(c, None) = *it else { continue };
+                    let me_c = &parts[a].1[c];
+                    if me_c.cut {
+                        continue;
+                    }
+                    let hit = (0..parts.len()).filter(|&b| b != a).find_map(|b| parts[b].3.iter().find_map(|x| match *x {
+                        Item::Ghost(g) if parts[b].2[g].id == me_c.id && !taken.contains(&(b, g)) => Some((b, g)),
+                        _ => None,
+                    }));
+                    if let Some(bg) = hit {
+                        taken.push(bg);
+                        moved.insert((a, i), bg);
+                    }
+                }
+            }
+            let mut secs = Map::new();
+            for (a, (n, cs, rcs, items)) in parts.iter().enumerate() {
+                let mv = |i: usize| moved.get(&(a, i)).map(|&(b, g)| (&parts[b].2[g], parts[b].0));
+                secs.insert((*n).into(), json!({
+                    "chips": items.iter().enumerate()
+                        .filter(|&(_, it)| !matches!(*it, Item::Ghost(g) if taken.contains(&(a, g))))
+                        .map(|(i, &it)| chip(it, cs, rcs, t0, rt0, mv(i))).collect::<Vec<_>>(),
+                    "time": onum(m.times.get(n).copied().flatten()),
+                    "refTime": onum(rm.and_then(|r| r.times.get(n).copied().flatten())),
                     "ref": rcs.iter().filter(|c| !c.cut).map(|c| ref_json(c, rt0)).collect::<Vec<_>>()}));
             }
             minis.push(json!({"sections": secs, "len": onum(m.len), "refLen": onum(rm.and_then(|r| r.len)),

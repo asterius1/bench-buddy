@@ -86,8 +86,9 @@ fn mark_icon(ui: &Ui, dl: &DrawListMut, p: [f32; 2], s: f32, w: f32, c: &Value, 
     } else if has(c, "extra") {
         m.edge = Some((MK_WARN, false));
         m.label = Some(("+1".into(), MK_WARN));
-    } else if has(c, "moved") {
-        // filler order: the bench casts it in another whirl of this cycle
+    } else if has(c, "moved") || has(c, "order") {
+        // filler order: the bench casts it in another whirl of this cycle, or on the other side of
+        // Shrapnel Grenade in this one
         m.edge = Some((MK_ORDER, false));
     } else if has(c, "movedfrom") {
         m.edge = Some((MK_ORDER, true));

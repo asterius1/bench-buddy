@@ -109,7 +109,7 @@ fn flags(c: &Value) -> Vec<String> {
     let k = kind(c);
     let mut f_: Vec<String> = if ["ghost", "extra", "moved", "movedfrom"].contains(&k) { vec![k.into()] } else { vec![] };
     for x in c.get("flags").and_then(Value::as_array).into_iter().flatten() {
-        if let Some(x) = x.as_str().filter(|x| *x == "slow" || *x == "few") {
+        if let Some(x) = x.as_str().filter(|x| ["slow", "few", "order"].contains(x)) {
             f_.push(x.into());
         }
     }
@@ -128,7 +128,7 @@ fn flags(c: &Value) -> Vec<String> {
 }
 
 fn problem(f_: &[String]) -> bool {
-    f_.iter().any(|x| ["ghost", "extra", "moved", "slow", "few", "cancel", "cdlate"].contains(&x.as_str()))
+    f_.iter().any(|x| ["ghost", "extra", "moved", "order", "slow", "few", "cancel", "cdlate"].contains(&x.as_str()))
 }
 
 fn wi(c: &Value, k: &str) -> usize {
@@ -145,6 +145,12 @@ fn card(c: &Value, fervor: &[(f64, f64)]) -> Vec<Value> {
         "moved" => rows.push(json!(["", format!("the bench casts it in the {}", whirl(wi(c, "movedFrom"))), 5])),
         "extra" => rows.push(json!(["", "the bench has no such cast in this cycle", 3])),
         _ => {}
+    }
+    // the same whirl, another section: a filler before Shrapnel Grenade, or Shrapnel after one
+    match s(c, "order") {
+        "core" => rows.push(json!(["", "the bench casts it before Shrapnel Grenade", 5])),
+        "" => {}
+        _ => rows.push(json!(["", "the bench casts it after Shrapnel Grenade", 5])),
     }
     if k == "ghost" || k == "movedfrom" {
         rows.push(json!(["Bench cast time", sec(f(c, "refDur")), 0]));
@@ -284,7 +290,7 @@ fn cell(r: &Value, k: usize, fervor: &[(f64, f64)]) -> Value {
         time = first.and_then(|fm| f(fm, "start"));
         splits = vec![];
     } else if let Some(m) = m {
-        chs = chips(m).into_iter().filter(|c| !m["len"].is_null() || kind(c) != "ghost").collect();
+        chs = chips(m);
         d = f(m, "len").and_then(|l| Some(l - f(m, "refLen")?));
         time = f(m, "len");
         let rn = &r["refN"];
@@ -332,7 +338,7 @@ fn cyc_card(r: &Value) -> Value {
 /// Hits per skill in this cycle, yours (as landed) against the bench's (as full casts).
 fn hits_of(r: &Value) -> OMap<i64, (String, i64, i64)> {
     let mut cs: Vec<&Value> = r["minis"].as_array().unwrap().iter().filter(|m| !m.is_null())
-        .flat_map(|m| chips(m).into_iter().filter(move |c| !m["len"].is_null() || kind(c) != "ghost")).collect();
+        .flat_map(chips).collect();
     if let Some(p) = r.get("pre").filter(|p| !p.is_null()) {
         cs.extend(p["chips"].as_array().unwrap().iter());
     }

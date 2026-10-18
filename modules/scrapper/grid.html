@@ -187,7 +187,7 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
     else if (fl.includes("few") && c.landed === 0) { m.edge = MK.bad; m.slash = true; }
     else if (fl.includes("few")) { m.edge = MK.bad; m.label = `${c.landed}/${c.expect}`; m.lc = MK.bad; }
     else if (c.kind === "extra") { m.edge = MK.warn; m.label = "+1"; m.lc = MK.warn; }
-    if (!m.edge && c.kind === "moved") m.edge = MK.order;
+    if (!m.edge && (c.kind === "moved" || fl.includes("order"))) m.edge = MK.order;
     if (!m.edge && c.kind === "movedfrom") { m.edge = MK.order; m.dashed = true; }
     if (!m.label && cdLate(c)) { m.label = "CD"; m.lc = MK.slow[1]; }
     if (fl.includes("slow") && (c.lost || 0) > 50) slowMark(m, c.lost);
@@ -294,7 +294,7 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
           continue;
         }
         if (!m) { h += `<div class="cell none"></div>`; continue; }
-        const chips = Object.values(m.sections).flatMap(s => s.chips).filter(c => m.len != null || c.kind !== "ghost");
+        const chips = Object.values(m.sections).flatMap(s => s.chips);
         const md = m.len != null && m.refLen != null ? m.len - m.refLen : null;
         h += `<div class="cell" style="${tempoBg(md)}" data-r="${ri}" data-m="${k}">
           <div class="tm"><span>${clk(m.start)}</span><span><b>${m.len != null ? (m.len / 1000).toFixed(2) : "…"}</b> ${sgn(md)}</span></div>${cellBody(chips)}</div>`;
@@ -361,12 +361,14 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
       ${tiles(chips)}${axis(chips, mm.start, mm.refStart != null ? mm.refStart : mm.start)}`;
   }
   const WN = ["bomb burst", "nade filler", "other filler"];
+  const ORDER = { core: "the bench casts it before Shrapnel Grenade", fill: "the bench casts it after Shrapnel Grenade", burst: "the bench casts it after Shrapnel Grenade" };
   function skillRows(c) {
     const rows = [];
     if (c.kind === "ghost") rows.push(["", `<span class="r">the bench casts it here, you didn't</span>`]);
     if (c.kind === "movedfrom") rows.push(["", `<span class="m">you cast it in the ${WN[c.movedTo]} instead</span>`]);
     if (c.kind === "moved") rows.push(["", `<span style="color:var(--accent)">the bench casts it in the ${WN[c.movedFrom]}</span>`]);
     if (c.kind === "extra") rows.push(["", `<span class="y">the bench has no such cast in this cycle</span>`]);
+    if (c.order) rows.push(["", `<span style="color:var(--accent)">${ORDER[c.order]}</span>`]);
     if (c.kind === "ghost" || c.kind === "movedfrom") { rows.push(["Bench cast time", sec(c.refDur)], ["Bench at", c.refT != null ? clk(c.refT) : "—"]); return rows; }
     rows.push(["At", clk(c.t) + (c.ref ? ` <span class="m">bench ${clk(c.ref.t)}</span>` : "")]);
     if (c.pre) rows.push(["", c.pre === "end" ? "under way at the fight start: placed from its end" : c.pre === "order" ? "mine placed before the fight: time from your opener order" : `placed before the fight: from its first hit at ${clk(c.hit)}`]);

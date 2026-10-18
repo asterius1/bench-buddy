@@ -140,6 +140,9 @@ impl State {
             ("Live off".to_string(), 0)
         } else if st.feed_at.is_none() {
             ("Live: no arcdps feed yet".to_string(), 0)
+        } else if self.self_elite == 43 {
+            // judge() sends nothing on a Scrapper: the live judge knows only the Berserker
+            ("Live: Berserker only, the log comes after the pull".to_string(), 0)
         } else if let Some((_, e)) = err_new {
             (format!("Live: {}", e.chars().take(48).collect::<String>()), 3)
         } else if in_pull && closed {

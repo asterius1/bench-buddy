@@ -22,8 +22,10 @@ programmers: explain what you changed in plain words, and show them the page.
 - **`core/serve.py`** is the local server on 127.0.0.1:8771 (`run.bat`, or `python core/serve.py
   [port] [--no-browser]`). It reloads changed modules by itself and the open page reloads with them;
   a change to `serve.py` itself exits with code 3, which `run.bat` answers by starting it again.
-- **`core/live_server.py`** is the live judge on 8772 for the addon (Condi Berserker only): it runs
-  `modules/berserker/local.py`'s `compare()` on casts rebuilt from the live arcdps feed.
+- **`core/live_server.py`** is the live judge on 8772 for the addon: `core/live.py` turns the live
+  arcdps feed into the record `evtc_rot.read()` gives for a log, and the build's module (by elite
+  spec) judges it with its own `compare()`. A module gets live for free if it reads pulls only
+  through `evtc_rot.read()`; an optional `live(record)` adjusts the record (the Berserker's swaps).
 - **`modules/berserker/`** and **`modules/scrapper/`** are the two full modules. They predate the
   simple contract below, so their routes are written out in `serve.py` (`/`, `/api/compare`,
   `/scrapper`, `/api/scrapper/...`). Read them for how far a module can go.
@@ -67,7 +69,8 @@ belongs in `core/`, say so and keep it general.
   or they won't match.
 - **Elite spec ids** are the GW2 API's specialization ids (18 Berserker, 43 Scrapper, 62 Firebrand).
   `tools/whatlog.py` prints the one in a log.
-- **The live feed** carries hits about 2.65 s late and no casts or swaps (`addon/README.md`).
+- **The live feeds** carry no casts or swaps; hits come on the local feed within 20 ms and on the
+  area feed 2.65 s late with exact times; buffs only on the area feed (`addon/README.md`).
 
 ## How to work here
 

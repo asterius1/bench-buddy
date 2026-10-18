@@ -326,9 +326,12 @@ pub fn draw(ui: &Ui, s: &mut State) -> bool {
         ui.push_style_var(StyleVar::WindowPadding([12.0, 12.0])),
         ui.push_style_var(StyleVar::WindowBorderSize(1.0)),
     ];
-    // the running pull, judged live, while following the newest; else the chosen log
-    let scrapper = s.kind == "scrapper";
-    let live = !scrapper && SHOW_LIVE.load(Ordering::Relaxed) && s.selected.is_none() && s.live_report.is_some();
+    // the running pull, judged live, while following the newest: its build picks the view
+    let following_live = SHOW_LIVE.load(Ordering::Relaxed) && s.selected.is_none();
+    let live_s = following_live && s.live_scrap.is_some();
+    let live_b = following_live && !live_s && s.live_report.is_some();
+    let scrapper = live_s || (!live_b && s.kind == "scrapper");
+    let live = live_s || live_b;
     let shown_log = s.selected.clone().unwrap_or_else(|| s.latest.clone());
     let nav = Nav {
         live,
@@ -356,7 +359,7 @@ pub fn draw(ui: &Ui, s: &mut State) -> bool {
                 let dl = ui.get_window_draw_list();
                 let r = if live { s.live_report.as_ref() } else { s.report.as_ref() };
                 if scrapper {
-                    if let Some(v) = s.scrap.as_ref() {
+                    if let Some(v) = if live_s { s.live_scrap.as_ref() } else { s.scrap.as_ref() } {
                         let log = v["log"].as_str().unwrap_or("").to_string();
                         tip = title_row(ui, &dl, p0[0], p0[1], avail[0], &log, "Scrapper", &nav, &mut acts);
                         let y0 = p0[1] + line_h(F::Ttl) + 2.0;

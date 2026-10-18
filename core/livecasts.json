@@ -1,0 +1,1120 @@
+{
+ "13009": {
+  "name": "Slice",
+  "offset": 440,
+  "spread": 126,
+  "window": 150,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 518
+ },
+ "80244": {
+  "name": "Flawless Execution",
+  "offset": 322,
+  "spread": 80,
+  "window": 1666,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 1821
+ },
+ "50484": {
+  "name": "Malicious Tactical Strike",
+  "offset": 238,
+  "spread": 40,
+  "window": 152,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 598
+ },
+ "80293": {
+  "name": "Swift Cut",
+  "offset": 400,
+  "spread": 282,
+  "window": 272,
+  "pulse": 0,
+  "casts": 16,
+  "dur": 638
+ },
+ "80238": {
+  "name": "Steel Divide",
+  "offset": 400,
+  "spread": 6,
+  "window": 272,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 596
+ },
+ "80213": {
+  "name": "Explosive Thrust",
+  "offset": 437,
+  "spread": 8,
+  "window": 232,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 435
+ },
+ "80199": {
+  "name": "Dragon Slash\u2014Force",
+  "offset": 522,
+  "spread": 6,
+  "window": 150,
+  "pulse": 0,
+  "casts": 15,
+  "dur": 1040
+ },
+ "80274": {
+  "name": "Artillery Slash",
+  "offset": 641,
+  "spread": 160,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 680
+ },
+ "80226": {
+  "name": "Cyclone Trigger",
+  "offset": 359,
+  "spread": 398,
+  "window": 150,
+  "pulse": 0,
+  "casts": 8,
+  "dur": 399
+ },
+ "80212": {
+  "name": "Blooming Fire",
+  "offset": 522,
+  "spread": 124,
+  "window": 430,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 600
+ },
+ "80241": {
+  "name": "Break Step",
+  "offset": 202,
+  "spread": 8,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 682
+ },
+ "5827": {
+  "name": "Fragmentation Shot",
+  "offset": 362,
+  "spread": 44,
+  "window": 150,
+  "pulse": 0,
+  "casts": 72,
+  "dur": 516
+ },
+ "5829": {
+  "name": "Static Shot",
+  "offset": 241,
+  "spread": 48,
+  "window": 150,
+  "pulse": 0,
+  "casts": 16,
+  "dur": 319
+ },
+ "5831": {
+  "name": "Blowtorch",
+  "offset": 282,
+  "spread": 6,
+  "window": 150,
+  "pulse": 0,
+  "casts": 19,
+  "dur": 558
+ },
+ "5828": {
+  "name": "Poison Dart Volley",
+  "offset": 242,
+  "spread": 18,
+  "window": 672,
+  "pulse": 0,
+  "casts": 20,
+  "dur": 842
+ },
+ "5807": {
+  "name": "Shrapnel Grenade",
+  "offset": 400,
+  "spread": 118,
+  "window": 234,
+  "pulse": 0,
+  "casts": 475,
+  "dur": 684
+ },
+ "5806": {
+  "name": "Poison Grenade",
+  "offset": 400,
+  "spread": 146,
+  "window": 234,
+  "pulse": 0,
+  "casts": 179,
+  "dur": 684
+ },
+ "5809": {
+  "name": "Freeze Grenade",
+  "offset": 400,
+  "spread": 118,
+  "window": 236,
+  "pulse": 0,
+  "casts": 175,
+  "dur": 568
+ },
+ "77209": {
+  "name": "Plasmatic State",
+  "offset": 442,
+  "spread": 8,
+  "window": 150,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 479
+ },
+ "77307": {
+  "name": "Plasmatic State",
+  "offset": 320,
+  "spread": 6,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 440
+ },
+ "5931": {
+  "name": "Flame Blast",
+  "offset": 480,
+  "spread": 208,
+  "window": 150,
+  "pulse": 0,
+  "casts": 26,
+  "dur": 800
+ },
+ "76493": {
+  "name": "Stoke the Flames",
+  "offset": 362,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 440
+ },
+ "5929": {
+  "name": "Napalm",
+  "offset": 280,
+  "spread": 18,
+  "window": 1368,
+  "pulse": 0,
+  "casts": 8,
+  "dur": 1755
+ },
+ "76866": {
+  "name": "Offensive Protocol: Shred",
+  "offset": 600,
+  "spread": 259,
+  "window": 266,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 760
+ },
+ "76806": {
+  "name": "Offensive Protocol: Obliterate",
+  "offset": 642,
+  "spread": 12,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 800
+ },
+ "5928": {
+  "name": "Flame Jet",
+  "offset": 284,
+  "spread": 132,
+  "window": 1354,
+  "pulse": 0,
+  "casts": 10,
+  "dur": 1734
+ },
+ "5830": {
+  "name": "Glue Shot",
+  "offset": 434,
+  "spread": 72,
+  "window": 150,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 552
+ },
+ "10273": {
+  "name": "Winds of Chaos",
+  "offset": 560,
+  "spread": 8,
+  "window": 314,
+  "pulse": 0,
+  "casts": 246,
+  "dur": 760
+ },
+ "71818": {
+  "name": "Jurisdiction",
+  "offset": 167,
+  "spread": 86,
+  "window": 150,
+  "pulse": 0,
+  "casts": 12,
+  "dur": 318
+ },
+ "71918": {
+  "name": "Hail of Justice",
+  "offset": 284,
+  "spread": 132,
+  "window": 1108,
+  "pulse": 0,
+  "casts": 27,
+  "dur": 1117
+ },
+ "9105": {
+  "name": "Sword of Wrath",
+  "offset": 280,
+  "spread": 84,
+  "window": 150,
+  "pulse": 0,
+  "casts": 18,
+  "dur": 520
+ },
+ "9106": {
+  "name": "Sword Arc",
+  "offset": 438,
+  "spread": 166,
+  "window": 150,
+  "pulse": 0,
+  "casts": 18,
+  "dur": 719
+ },
+ "9227": {
+  "name": "Sword Wave",
+  "offset": 640,
+  "spread": 164,
+  "window": 152,
+  "pulse": 0,
+  "casts": 17,
+  "dur": 920
+ },
+ "9187": {
+  "name": "Purging Flames",
+  "offset": 334,
+  "spread": 164,
+  "window": 7152,
+  "pulse": 1000,
+  "casts": 9,
+  "dur": 326
+ },
+ "9137": {
+  "name": "Strike",
+  "offset": 600,
+  "spread": 202,
+  "window": 150,
+  "pulse": 0,
+  "casts": 8,
+  "dur": 779
+ },
+ "62517": {
+  "name": "Vicious Shot",
+  "offset": 438,
+  "spread": 44,
+  "window": 150,
+  "pulse": 0,
+  "casts": 91,
+  "dur": 598
+ },
+ "62511": {
+  "name": "Vile Blast",
+  "offset": 602,
+  "spread": 42,
+  "window": 150,
+  "pulse": 0,
+  "casts": 19,
+  "dur": 600
+ },
+ "62513": {
+  "name": "Weeping Shots",
+  "offset": 284,
+  "spread": 54,
+  "window": 802,
+  "pulse": 0,
+  "casts": 27,
+  "dur": 838
+ },
+ "45846": {
+  "name": "Harrowing Wave",
+  "offset": 318,
+  "spread": 16,
+  "window": 150,
+  "pulse": 0,
+  "casts": 19,
+  "dur": 438
+ },
+ "44296": {
+  "name": "Oppressive Collapse",
+  "offset": 560,
+  "spread": 34,
+  "window": 150,
+  "pulse": 0,
+  "casts": 14,
+  "dur": 602
+ },
+ "10544": {
+  "name": "Blood Is Power",
+  "offset": 560,
+  "spread": 16,
+  "window": 150,
+  "pulse": 0,
+  "casts": 13,
+  "dur": 880
+ },
+ "10549": {
+  "name": "Plaguelands",
+  "offset": 1722,
+  "spread": 16,
+  "window": 8156,
+  "pulse": 1000,
+  "casts": 6,
+  "dur": 920
+ },
+ "51647": {
+  "name": "Devouring Darkness",
+  "offset": 480,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 20,
+  "dur": 600
+ },
+ "10532": {
+  "name": "Grasping Dead",
+  "offset": 560,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 19,
+  "dur": 881
+ },
+ "10698": {
+  "name": "Blood Curse",
+  "offset": 360,
+  "spread": 16,
+  "window": 150,
+  "pulse": 0,
+  "casts": 35,
+  "dur": 434
+ },
+ "10699": {
+  "name": "Rending Curse",
+  "offset": 440,
+  "spread": 12,
+  "window": 150,
+  "pulse": 0,
+  "casts": 26,
+  "dur": 600
+ },
+ "10552": {
+  "name": "Putrid Curse",
+  "offset": 360,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 20,
+  "dur": 600
+ },
+ "29785": {
+  "name": "Negative Bash",
+  "offset": 316,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 411,
+  "dur": 634
+ },
+ "5813": {
+  "name": "Big Ol' Bomb",
+  "offset": 3366,
+  "spread": 168,
+  "window": 150,
+  "pulse": 0,
+  "casts": 112,
+  "dur": 600
+ },
+ "76530": {
+  "name": "Magnetic Bomb",
+  "offset": 2366,
+  "spread": 160,
+  "window": 150,
+  "pulse": 0,
+  "casts": 109,
+  "dur": 600
+ },
+ "5823": {
+  "name": "Fire Bomb",
+  "offset": 1366,
+  "spread": 152,
+  "window": 3166,
+  "pulse": 1000,
+  "casts": 139,
+  "dur": 600
+ },
+ "5822": {
+  "name": "Galvanic Bomb",
+  "offset": 1366,
+  "spread": 152,
+  "window": 150,
+  "pulse": 0,
+  "casts": 101,
+  "dur": 518
+ },
+ "6161": {
+  "name": "Throw Mine",
+  "offset": 402,
+  "spread": 238,
+  "window": 150,
+  "pulse": 0,
+  "casts": 216,
+  "dur": 366
+ },
+ "30501": {
+  "name": "Positive Strike",
+  "offset": 366,
+  "spread": 50,
+  "window": 150,
+  "pulse": 0,
+  "casts": 456,
+  "dur": 482
+ },
+ "30713": {
+  "name": "Thunderclap",
+  "offset": 1518,
+  "spread": 252,
+  "window": 4168,
+  "pulse": 1000,
+  "casts": 109,
+  "dur": 566
+ },
+ "30088": {
+  "name": "Electro-whirl",
+  "offset": 284,
+  "spread": 20,
+  "window": 524,
+  "pulse": 0,
+  "casts": 452,
+  "dur": 684
+ },
+ "30489": {
+  "name": "Equalizing Blow",
+  "offset": 316,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 384,
+  "dur": 434
+ },
+ "30665": {
+  "name": "Rocket Charge",
+  "offset": 650,
+  "spread": 18,
+  "window": 1448,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 1916
+ },
+ "5491": {
+  "name": "Fireball",
+  "offset": 518,
+  "spread": 286,
+  "window": 1552,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 1400
+ },
+ "5519": {
+  "name": "Stoning",
+  "offset": 84,
+  "spread": 68,
+  "window": 1468,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 1318
+ },
+ "5518": {
+  "name": "Chain Lightning",
+  "offset": 566,
+  "spread": 1848,
+  "window": 150,
+  "pulse": 0,
+  "casts": 9,
+  "dur": 1200
+ },
+ "71987": {
+  "name": "Symbol of Ignition",
+  "offset": 284,
+  "spread": 22,
+  "window": 2884,
+  "pulse": 0,
+  "casts": 19,
+  "dur": 356
+ },
+ "62624": {
+  "name": "Rushing Justice",
+  "offset": 400,
+  "spread": 50,
+  "window": 150,
+  "pulse": 0,
+  "casts": 16,
+  "dur": 444
+ },
+ "71968": {
+  "name": "Peacekeeper",
+  "offset": 282,
+  "spread": 18,
+  "window": 836,
+  "pulse": 0,
+  "casts": 23,
+  "dur": 1034
+ },
+ "72031": {
+  "name": "Through the Heart",
+  "offset": 366,
+  "spread": 82,
+  "window": 150,
+  "pulse": 0,
+  "casts": 32,
+  "dur": 284
+ },
+ "62648": {
+  "name": "Crashing Courage",
+  "offset": 518,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 683
+ },
+ "9089": {
+  "name": "Zealot's Fire",
+  "offset": 484,
+  "spread": 90,
+  "window": 150,
+  "pulse": 0,
+  "casts": 15,
+  "dur": 684
+ },
+ "9088": {
+  "name": "Cleansing Flame",
+  "offset": 516,
+  "spread": 18,
+  "window": 2150,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 2484
+ },
+ "56920": {
+  "name": "Function Gyro",
+  "offset": 234,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 146,
+  "dur": 284
+ },
+ "6164": {
+  "name": "Mine Field",
+  "offset": 1168,
+  "spread": 964,
+  "window": 150,
+  "pulse": 0,
+  "casts": 97,
+  "dur": 918
+ },
+ "5810": {
+  "name": "Grenade Barrage",
+  "offset": 400,
+  "spread": 84,
+  "window": 268,
+  "pulse": 0,
+  "casts": 150,
+  "dur": 684
+ },
+ "30885": {
+  "name": "Poison Gas Shell",
+  "offset": 434,
+  "spread": 282,
+  "window": 150,
+  "pulse": 0,
+  "casts": 144,
+  "dur": 534
+ },
+ "30307": {
+  "name": "Endothermic Shell",
+  "offset": 700,
+  "spread": 2068,
+  "window": 150,
+  "pulse": 0,
+  "casts": 14,
+  "dur": 566
+ },
+ "5882": {
+  "name": "Grenade",
+  "offset": 500,
+  "spread": 850,
+  "window": 834,
+  "pulse": 0,
+  "casts": 26,
+  "dur": 684
+ },
+ "5808": {
+  "name": "Flash Grenade",
+  "offset": 518,
+  "spread": 316,
+  "window": 232,
+  "pulse": 0,
+  "casts": 5,
+  "dur": 682
+ },
+ "5842": {
+  "name": "Bomb",
+  "offset": 166,
+  "spread": 488,
+  "window": 1350,
+  "pulse": 600,
+  "casts": 16,
+  "dur": 600
+ },
+ "30371": {
+  "name": "Mortar Shot",
+  "offset": 400,
+  "spread": 1916,
+  "window": 1034,
+  "pulse": 0,
+  "casts": 22,
+  "dur": 566
+ },
+ "30121": {
+  "name": "Flash Shell",
+  "offset": 784,
+  "spread": 1434,
+  "window": 150,
+  "pulse": 0,
+  "casts": 8,
+  "dur": 568
+ },
+ "5934": {
+  "name": "Tranquilizer Dart",
+  "offset": 484,
+  "spread": 216,
+  "window": 150,
+  "pulse": 0,
+  "casts": 16,
+  "dur": 551
+ },
+ "5935": {
+  "name": "Glob Shot",
+  "offset": 475,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 600
+ },
+ "5965": {
+  "name": "Fumigate",
+  "offset": 283,
+  "spread": 18,
+  "window": 1236,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 1444
+ },
+ "71121": {
+  "name": "Refraction Cutter",
+  "offset": 318,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 518
+ },
+ "70514": {
+  "name": "Sun Edge",
+  "offset": 366,
+  "spread": 22,
+  "window": 150,
+  "pulse": 0,
+  "casts": 13,
+  "dur": 450
+ },
+ "69906": {
+  "name": "Sun Ripper",
+  "offset": 435,
+  "spread": 30,
+  "window": 150,
+  "pulse": 0,
+  "casts": 12,
+  "dur": 482
+ },
+ "70771": {
+  "name": "Gleam Saber",
+  "offset": 601,
+  "spread": 6,
+  "window": 150,
+  "pulse": 0,
+  "casts": 12,
+  "dur": 752
+ },
+ "6153": {
+  "name": "Blunderbuss",
+  "offset": 366,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 400
+ },
+ "6003": {
+  "name": "Rifle Burst",
+  "offset": 320,
+  "spread": 232,
+  "window": 150,
+  "pulse": 0,
+  "casts": 32,
+  "dur": 832
+ },
+ "73109": {
+  "name": "Rending Strike",
+  "offset": 400,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 15,
+  "dur": 518
+ },
+ "73001": {
+  "name": "Amplifying Slice",
+  "offset": 600,
+  "spread": 2,
+  "window": 150,
+  "pulse": 0,
+  "casts": 13,
+  "dur": 634
+ },
+ "72944": {
+  "name": "Puncturing Jab",
+  "offset": 366,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 17,
+  "dur": 432
+ },
+ "73122": {
+  "name": "Conduit Surge",
+  "offset": 534,
+  "spread": 34,
+  "window": 150,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 534
+ },
+ "71873": {
+  "name": "Arc Detonator",
+  "offset": 84,
+  "spread": 402,
+  "window": 684,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 467
+ },
+ "63186": {
+  "name": "Mace Strike",
+  "offset": 366,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 7,
+  "dur": 435
+ },
+ "63077": {
+  "name": "Mace Smash",
+  "offset": 434,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 516
+ },
+ "63174": {
+  "name": "Mace Blast",
+  "offset": 517,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 801
+ },
+ "29845": {
+  "name": "Blaze Breaker",
+  "offset": 400,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 470,
+  "dur": 484
+ },
+ "14431": {
+  "name": "Dual Shot",
+  "offset": 566,
+  "spread": 100,
+  "window": 234,
+  "pulse": 0,
+  "casts": 431,
+  "dur": 168
+ },
+ "29923": {
+  "name": "Scorched Earth",
+  "offset": 318,
+  "spread": 18,
+  "window": 4154,
+  "pulse": 2000,
+  "casts": 1227,
+  "dur": 366
+ },
+ "14504": {
+  "name": "Pin Down",
+  "offset": 566,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 331,
+  "dur": 684
+ },
+ "80247": {
+  "name": "Rend",
+  "offset": 434,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 460,
+  "dur": 482
+ },
+ "30682": {
+  "name": "Flaming Flurry",
+  "offset": 400,
+  "spread": 4,
+  "window": 1318,
+  "pulse": 0,
+  "casts": 458,
+  "dur": 1600
+ },
+ "14364": {
+  "name": "Sever Artery",
+  "offset": 200,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 443,
+  "dur": 350
+ },
+ "14365": {
+  "name": "Gash",
+  "offset": 284,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 351,
+  "dur": 516
+ },
+ "14363": {
+  "name": "Hamstring",
+  "offset": 234,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 150,
+  "dur": 326
+ },
+ "14519": {
+  "name": "Fan of Fire",
+  "offset": 234,
+  "spread": 20,
+  "window": 150,
+  "pulse": 0,
+  "casts": 867,
+  "dur": 550
+ },
+ "14381": {
+  "name": "Arcing Arrow",
+  "offset": 682,
+  "spread": 234,
+  "window": 150,
+  "pulse": 0,
+  "casts": 474,
+  "dur": 550
+ },
+ "30074": {
+  "name": "Shattering Blow",
+  "offset": 318,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 289,
+  "dur": 518
+ },
+ "29613": {
+  "name": "Sundering Leap",
+  "offset": 868,
+  "spread": 50,
+  "window": 150,
+  "pulse": 0,
+  "casts": 271,
+  "dur": 950
+ },
+ "14366": {
+  "name": "Savage Leap",
+  "offset": 800,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 475,
+  "dur": 1000
+ },
+ "80224": {
+  "name": "Rend",
+  "offset": 400,
+  "spread": 4,
+  "window": 150,
+  "pulse": 0,
+  "casts": 388,
+  "dur": 482
+ },
+ "14522": {
+  "name": "Combustive Shot",
+  "offset": 934,
+  "spread": 266,
+  "window": 9150,
+  "pulse": 3000,
+  "casts": 9,
+  "dur": 916
+ },
+ "14505": {
+  "name": "Smoldering Arrow",
+  "offset": 250,
+  "spread": 50,
+  "window": 150,
+  "pulse": 0,
+  "casts": 27,
+  "dur": 636
+ },
+ "29940": {
+  "name": "Flames of War",
+  "buff": 31708,
+  "offset": 484,
+  "spread": 18,
+  "window": 0,
+  "pulse": 0,
+  "casts": 166,
+  "dur": 516
+ },
+ "30343": {
+  "name": "Head Butt",
+  "offset": 766,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 112,
+  "dur": 768
+ },
+ "29941": {
+  "name": "Wild Blow",
+  "offset": 482,
+  "spread": 18,
+  "window": 150,
+  "pulse": 0,
+  "casts": 6,
+  "dur": 600
+ },
+ "30189": {
+  "name": "Blood Reckoning",
+  "buff": 29466,
+  "offset": 234,
+  "spread": 18,
+  "window": 0,
+  "pulse": 0,
+  "casts": 350,
+  "dur": 282
+ },
+ "62803": {
+  "name": "Dragon Trigger",
+  "buff": 62911,
+  "offset": 0,
+  "spread": 2,
+  "casts": 17,
+  "window": 0,
+  "pulse": 0,
+  "dur": 1560
+ },
+ "44946": {
+  "name": "Manifest Sand Shade",
+  "buff": 69446,
+  "offset": 438,
+  "spread": 12,
+  "casts": 25,
+  "window": 0,
+  "pulse": 0,
+  "dur": 480
+ },
+ "10689": {
+  "name": "Corrosive Poison Cloud",
+  "buff": 721,
+  "offset": 482,
+  "spread": 20,
+  "casts": 8,
+  "window": 0,
+  "pulse": 0,
+  "dur": 600
+ },
+ "62668": {
+  "name": "Rushing Justice",
+  "buff": 62529,
+  "offset": 34,
+  "spread": 20,
+  "casts": 16,
+  "window": 0,
+  "pulse": 0,
+  "dur": 34
+ },
+ "62603": {
+  "name": "Flowing Resolve",
+  "buff": 62639,
+  "offset": 0,
+  "spread": 0,
+  "casts": 11,
+  "window": 0,
+  "pulse": 0,
+  "dur": 518
+ },
+ "29505": {
+  "name": "Reconstruction Field",
+  "buff": 717,
+  "with": 5974,
+  "gap": 0,
+  "offset": 318,
+  "spread": 18,
+  "casts": 26,
+  "window": 0,
+  "pulse": 0,
+  "dur": 366
+ },
+ "23275/43": {
+  "name": "23275",
+  "buff": 59579,
+  "offset": 800,
+  "spread": 50,
+  "casts": 94,
+  "window": 0,
+  "pulse": 0,
+  "dur": 800
+ }
+}

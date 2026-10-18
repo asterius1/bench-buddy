@@ -2,19 +2,18 @@
 
     pythonw core/live_server.py [port]      (default 8772; the addon starts it when it is not running)
 
-The addon POSTs to /compare the casts it has put back from your live hits and buffs:
-    {"casts": [{"id", "t", "hits"}], "buffs": {buff id: [apply times]}, "start": t, "end": t}
-(ms, arcdps clock; start is the pull's first hit, when arcdps starts the log)
-and gets back what the checker's /api/compare gives for a log, so the panel draws a running pull
-exactly like a finished one. It reads the Berserker module (local, baseline) and evtc_rot, never changes it:
-`local.compare()` is called with `evtc_rot.read` answering with the live pull. Live casts have no
-lengths, so each gets the bench's median length for its skill; what is judged (start to next cast,
-hits, buffs) does not depend on that. Casts started before the first hit are left out, as the log
-leaves them out. Weapon swaps are put SWAP_MS before the first cast on the other weapon (the median
-over 286 swaps in the golem logs). An auto attack with fewer hits than expected counts as cut, as
-the checker counts a cancelled one.
-The rotation modules are reloaded when they change, as core/serve.py does. The server exits
-after 15 minutes without a request. A request that fails is logged with its traceback to
+The addon POSTs to /compare your events of the live arcdps feed and your elite spec:
+    {"elite": 43, "events": [{"time", "sc", "buff", "skill", "value", "buff_dmg", "result", "dst_self"}]}
+core/live.py turns them into the record `evtc_rot.read()` gives for a log, and the build's module
+judges it as it judges a log: `evtc_rot.read` answers with the live record while the module runs.
+So any module that reads its pulls through evtc_rot judges live pulls too, with no code of its own.
+A module may adjust the record first in `live(record)` (the Berserker puts back its weapon swaps).
+
+What comes back is what the addon draws for a log of that build: {"kind": "berserker", "data":
+/api/compare} or {"kind": "scrapper", "data": /api/scrapper/panel}; another module's compare()
+as {"kind": its ROUTE}. Unknown elite: {"kind": null}.
+The modules are reloaded when they change, as core/serve.py does. The server exits after 15
+minutes without a request. A request that fails is logged with its traceback to
 core/cache/live_server.log, and its body kept in core/cache/live_fail.json to replay it.
 """
 import importlib
@@ -27,18 +26,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-ROOT = HERE.parent
-for d in (HERE, ROOT / "modules" / "berserker"):
-    sys.path.insert(0, str(d))
-import baseline  # noqa: E402
+sys.path.insert(0, str(HERE))
 import evtc_rot  # noqa: E402
-import kit  # noqa: E402
-import local  # noqa: E402
+import live  # noqa: E402
+import serve  # noqa: E402  (loads every module as the checker does: local, scrap, panel, the simple ones)
 
-MODULES = [evtc_rot, kit, baseline, local]   # reloaded in this order
+MODULES = [evtc_rot, live] + [m for m in serve.MODULES if m is not evtc_rot]   # reloaded in this order
 IDLE_EXIT_S = 15 * 60
 CACHE = HERE / "cache"
-SWAP_MS = 116
 _lock = threading.Lock()
 _last = [time.time()]
 _mtimes = {}
@@ -50,51 +45,42 @@ def reload_if_changed():
         return
     if _mtimes:
         for m in MODULES:
-            importlib.reload(m)
+            if m in serve.SIMPLE:
+                m.__spec__.loader.exec_module(m)
+            else:
+                importlib.reload(m)
     for m in MODULES:
         _mtimes[m.__name__] = Path(m.__file__).stat().st_mtime
 
 
-def pull_record(live):
-    """The live casts as `evtc_rot.read()` would give a log."""
-    rf, _ = local.ref()
-    casts = []
-    start = live.get("start", 0)
-    for c in sorted(live.get("casts", []), key=lambda c: c["t"]):
-        if c["t"] < start:
-            continue
-        sid, hits = int(c["id"]), c.get("hits", 0)
-        dur = round(rf[sid]["med"]) if sid in rf else 300
-        cut = sid in baseline.AUTOS and sid in baseline.EXPECT and hits < baseline.EXPECT[sid][0]
-        casts.append({"id": sid, "name": baseline.NAMES.get(sid, str(sid)), "t": c["t"], "exp": dur, "base": dur,
-                      "dur": dur, "stop": "cancel" if cut else "done", "hits": hits, "during": hits,
-                      "all": hits, "missed": 0, "dmg": 0})
-    swaps, weapon = [], None
-    for a, b in zip(casts, casts[1:]):
-        wa = "sword" if a["id"] in local.SWORD else "bow" if a["id"] in local.BOW else weapon
-        wb = "sword" if b["id"] in local.SWORD else "bow" if b["id"] in local.BOW else wa
-        weapon = wa
-        if wa and wb and wa != wb:
-            swaps.append({"t": max(a["t"] + 1, b["t"] - SWAP_MS), "set": 0})
-    buffs = {int(k): v for k, v in live.get("buffs", {}).items()}
-    end = max([live.get("end", 0)] + [c["t"] + c["dur"] for c in casts])
-    return {"player": "", "elite": 18, "casts": casts, "swaps": swaps, "buffs": buffs, "buffs_gone": {},
-            "loose": {}, "end": end, "file": "live"}
+def judge_for(elite):
+    """(kind, module, function) that judges a pull of this elite spec, or None."""
+    if elite == 18:
+        return "berserker", serve.local, serve.local.compare
+    if elite == 43:
+        return "scrapper", serve.scrap, serve.scrap_panel.panel
+    m = next((m for m in serve.SIMPLE if getattr(m, "ELITE", None) == elite), None)
+    return (m.ROUTE, m, m.compare) if m else None
 
 
-def compare_live(live):
+def compare_live(body):
     with _lock:
         reload_if_changed()
-        r = pull_record(live)
-        if not r["casts"]:
-            return None
-        read, damage = evtc_rot.read, local.damage
+        j = judge_for(body.get("elite"))
+        if j is None:
+            return {"kind": None}
+        kind, mod, fn = j
+        r = live.record(body.get("events", []), body.get("elite"))
+        if r is None or not r["casts"]:
+            return {"kind": kind, "data": None}
+        if hasattr(mod, "live"):
+            r = mod.live(r)
+        read = evtc_rot.read
         evtc_rot.read = lambda path: r
-        local.damage = lambda path: None
         try:
-            return local.compare(Path("live.zevtc"))
+            return {"kind": kind, "data": fn(Path("live.zevtc"))}
         finally:
-            evtc_rot.read, local.damage = read, damage
+            evtc_rot.read = read
 
 
 class H(BaseHTTPRequestHandler):

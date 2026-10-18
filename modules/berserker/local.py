@@ -348,7 +348,33 @@ def compare(path):
     p = pull(path)
     return {"log": r["file"], "rows": rows, "lag": p["lag"], "secs": p["secs"], "failed": p["failed"],
             "judged": p["judged"], "berserk": p["berserk"], "sword": p["sword"], "bow": p["bow"],
-            "slow": SLOW_MS, "damage": damage(path)}
+            "slow": SLOW_MS, "damage": damage(path) if r["file"] != "live" else None}
+
+
+SWAP_MS = 116   # a live swap: this long before the first cast on the other weapon (median of 286 swaps)
+
+
+def live(r):
+    """The live record (core/live.py) made ready for compare(): casts get the bench's median length
+    (live casts have none; what is judged doesn't depend on it), an auto attack with fewer hits than
+    a full one counts as cancelled, as in a log, and the weapon swaps the feed doesn't carry are put
+    back SWAP_MS before the first cast on the other weapon."""
+    rf, _ = ref()
+    for c in r["casts"]:
+        if c["id"] in rf:
+            c["exp"] = c["base"] = c["dur"] = round(rf[c["id"]]["med"])
+        c["name"] = baseline.NAMES.get(c["id"], c["name"])
+        if c["id"] in baseline.AUTOS and c["id"] in baseline.EXPECT and c["hits"] < baseline.EXPECT[c["id"]][0]:
+            c["stop"] = "cancel"
+    weapon = None
+    for a, b in zip(r["casts"], r["casts"][1:]):
+        wa = "sword" if a["id"] in SWORD else "bow" if a["id"] in BOW else weapon
+        wb = "sword" if b["id"] in SWORD else "bow" if b["id"] in BOW else wa
+        weapon = wa
+        if wa and wb and wa != wb:
+            r["swaps"].append({"t": max(a["t"] + 1, b["t"] - SWAP_MS), "set": 0})
+    r["end"] = max([r["end"]] + [c["t"] + c["dur"] for c in r["casts"]])
+    return r
 
 
 # ---- the opening seconds: damage and condition stacks against the reference -------------------

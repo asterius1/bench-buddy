@@ -1,70 +1,32 @@
-//! The live pull: your casts put back from your hits on the arcdps area feed (which carries hits
-//! but no casts), and a recording of that feed for checking it against the log afterwards.
+//! The live pull: your events on the arcdps area feed (hits, condition ticks, buff changes) since the
+//! pull started, sent as they are to the live judge, and a recording of the feed for checking it
+//! against the log afterwards.
 //!
-//! A cast starts `offset` ms before its skill's first hit; further hits of that skill within
-//! `window` ms belong to it, and for a pulsing field (Scorched Earth) only those on its beat.
-//! Flames of War and Blood Reckoning do no damage: they start `offset` ms before the buff they put
-//! on you. The table is `casts.json`, measured from the golem logs by `tools/livecast.py`.
-//! `core/live_server.py` judges the result with the checker's own code.
+//! The feed carries hits but no casts. `core/live.py` puts the casts back from the hits and
+//! `core/live_server.py` judges them with the build's own module, so nothing here knows a build.
 
 use serde_json::{json, Value};
 use std::{
-    collections::HashMap,
     fs::{self, File},
     io::{BufWriter, Write},
     path::Path,
     time::{Instant, SystemTime, UNIX_EPOCH},
 };
 
-const PULSE_TOL: i64 = 60;
 /// A gap in your hits this long starts a new pull.
 const NEW_PULL_MS: u64 = 12_000;
 /// The same after the pull's log came in: hits still arriving then are the old pull's (the feed
 /// is 2.7 s late), a pause after them starts the next one.
 const ENDED_GAP_MS: u64 = 3_000;
-
-pub struct Rule {
-    pub name: String,
-    offset: i64,
-    window: i64,
-    pulse: i64,
-    /// the buff that shows this skill live, for skills that do not hit
-    buff: Option<u32>,
-}
-
-pub fn rules() -> HashMap<u32, Rule> {
-    let v: Value = serde_json::from_str(include_str!("../casts.json")).expect("casts.json");
-    v.as_object()
-        .unwrap()
-        .iter()
-        .filter_map(|(k, r)| {
-            Some((
-                k.parse().ok()?,
-                Rule {
-                    name: r["name"].as_str()?.to_string(),
-                    offset: r["offset"].as_i64()?,
-                    window: r["window"].as_i64()?,
-                    pulse: r["pulse"].as_i64().unwrap_or(0),
-                    buff: r["buff"].as_u64().map(|b| b as u32),
-                },
-            ))
-        })
-        .collect()
-}
-
-pub struct Cast {
-    pub skill: u32,
-    /// arcdps time (ms) of the guessed cast start
-    pub start: u64,
-    pub hits: u32,
-}
+/// Kept from before a pull's first hit: buffs you had, casts already under way.
+const BEFORE_MS: u64 = 3_000;
 
 #[derive(Default)]
 pub struct Live {
-    pub casts: Vec<Cast>,
-    /// per skill, the first hits of its casts that can still be hitting, with their start
-    open: HashMap<u32, Vec<(u64, u64)>>,
-    buffs: HashMap<u32, Vec<u64>>,
+    /// the pull's events as the judge reads them, oldest first
+    events: Vec<(u64, Value)>,
+    /// the pull's direct hits so far
+    pub hits: usize,
     /// the pull's first hit (arcdps starts its log there) and newest hit
     first_hit: u64,
     last_hit: u64,
@@ -77,59 +39,64 @@ pub struct Live {
 }
 
 impl Live {
-    fn new_pull_check(&mut self, time: u64) {
-        // once the pull's log is in, a short pause is enough to tell the next pull
-        let gap = if self.ended { ENDED_GAP_MS } else { NEW_PULL_MS };
-        if self.last_hit != 0 && time > self.last_hit + gap {
-            *self = Live { version: self.version + 1, ..Live::default() };
-        }
-    }
-
     /// The pull's log has come in.
     pub fn end_pull(&mut self) {
         self.ended = true;
     }
 
-    fn add(&mut self, skill: u32, start: u64, hits: u32) {
-        let at = self.casts.partition_point(|c| c.start <= start);
-        self.casts.insert(at, Cast { skill, start, hits });
-        self.version += 1;
-    }
-
-    pub fn hit(&mut self, time: u64, skill: u32, rules: &HashMap<u32, Rule>) {
-        self.new_pull_check(time);
-        if self.first_hit == 0 {
-            self.first_hit = time;
-        }
-        self.last_hit = self.last_hit.max(time);
-        self.last_arrival = Some(Instant::now());
-        let Some(r) = rules.get(&skill).filter(|r| r.buff.is_none()) else { return };
-        let open = self.open.entry(skill).or_default();
-        open.retain(|&(f, _)| (time as i64 - f as i64) <= r.window);
-        let same = open.iter().find(|&&(f, _)| {
-            let d = time as i64 - f as i64;
-            r.pulse == 0 || ((d + PULSE_TOL).rem_euclid(r.pulse) - PULSE_TOL).abs() <= PULSE_TOL
-        });
-        if let Some(&(_, start)) = same {
-            // a further hit of a cast already seen; a field's pulses are not the cast's hits
-            if r.pulse == 0 {
-                if let Some(c) = self.casts.iter_mut().find(|c| c.skill == skill && c.start == start) {
-                    c.hits += 1;
-                    self.version += 1;
-                }
-            }
+    /// One event of yours. Only what the judge reads is kept: direct hits and condition ticks (state
+    /// change 0), initial buffs (18), buffs applied (69) and gone (72). Direct hits come on both
+    /// feeds: the local copy within 20 ms, the area copy 2.6 s later with the exact time (the local
+    /// one is off by up to 40 ms and its value negative). So a local hit is taken at once and its
+    /// area copy, when it comes, takes its place; everything else comes from the area feed only.
+    pub fn event(&mut self, feed: &str, e: &nexus::event::arc::evtc::Event, dst_self: bool) {
+        let sc = e.is_statechange as u8;
+        if !matches!(sc, 0 | 18 | 69 | 72) || (sc == 0 && e.is_activation != 0) {
             return;
         }
-        let start = (time as i64 - r.offset).max(0) as u64;
-        open.push((time, start));
-        self.add(skill, start, 1);
-    }
-
-    pub fn buff(&mut self, time: u64, buff: u32, rules: &HashMap<u32, Rule>) {
-        let Some((&skill, r)) = rules.iter().find(|(_, r)| r.buff == Some(buff)) else { return };
-        self.new_pull_check(time);
-        self.buffs.entry(buff).or_default().push(time);
-        self.add(skill, (time as i64 - r.offset).max(0) as u64, 0);
+        let direct = sc == 0 && e.buff == 0 && e.is_buffremove == 0 && e.dst_agent != 0 && !dst_self;
+        let local = feed == "local";
+        if local && !direct {
+            return;
+        }
+        if direct && !local {
+            // the area copy of a hit already taken from the local feed: it only corrects the time
+            let twin = self.events.iter().position(|(t, v)| {
+                v["local"] == true && v["skill"] == e.skill_id && v["value"] == e.value.unsigned_abs() && t.abs_diff(e.time) <= 60
+            });
+            if let Some(i) = twin {
+                let (_, mut v) = self.events.remove(i);
+                v["time"] = e.time.into();
+                v["local"] = false.into();
+                let at = self.events.partition_point(|(t, _)| *t <= e.time);
+                self.events.insert(at, (e.time, v));
+                self.version += 1;
+                return;
+            }
+        }
+        if direct {
+            // once the pull's log is in, a short pause is enough to tell the next pull
+            let gap = if self.ended { ENDED_GAP_MS } else { NEW_PULL_MS };
+            if self.last_hit != 0 && e.time > self.last_hit + gap {
+                let keep: Vec<(u64, Value)> = self.events.drain(..).filter(|(t, _)| *t + BEFORE_MS >= e.time).collect();
+                *self = Live { version: self.version + 1, events: keep, ..Live::default() };
+            }
+            if self.first_hit == 0 {
+                self.first_hit = e.time;
+            }
+            self.last_hit = self.last_hit.max(e.time);
+            self.last_arrival = Some(Instant::now());
+            self.hits += 1;
+        } else if self.first_hit == 0 || self.ended {
+            // before a pull: only the last few seconds matter
+            self.events.retain(|(t, _)| *t + BEFORE_MS >= e.time);
+        }
+        let v = json!({"time": e.time, "sc": sc, "buff": e.buff, "skill": e.skill_id, "value": e.value.unsigned_abs(),
+                       "buff_dmg": e.buff_dmg, "result": e.result, "buffremove": e.is_buffremove,
+                       "dst": e.dst_agent, "dst_self": dst_self, "local": local});
+        let at = self.events.partition_point(|(t, _)| *t <= e.time);
+        self.events.insert(at, (e.time, v));
+        self.version += 1;
     }
 
     pub fn last_hit(&self) -> u64 {
@@ -145,13 +112,8 @@ impl Live {
     }
 
     /// What `core/live_server.py` judges.
-    pub fn to_json(&self) -> Value {
-        json!({
-            "casts": self.casts.iter().map(|c| json!({"id": c.skill, "t": c.start, "hits": c.hits})).collect::<Vec<_>>(),
-            "buffs": self.buffs.iter().map(|(k, v)| (k.to_string(), json!(v))).collect::<serde_json::Map<_, _>>(),
-            "start": self.first_hit,
-            "end": self.last_hit,
-        })
+    pub fn to_json(&self, elite: u32) -> Value {
+        json!({"elite": elite, "events": self.events.iter().map(|(_, v)| v).collect::<Vec<_>>()})
     }
 }
 

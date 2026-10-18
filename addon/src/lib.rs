@@ -62,7 +62,6 @@ pub struct State {
     pub icons: HashMap<u32, String>,
     pub status: String,
     pub live: live::Live,
-    pub rules: HashMap<u32, live::Rule>,
     recorder: Option<live::Recorder>,
     pub fill: String,
     dir: Option<PathBuf>,
@@ -71,6 +70,8 @@ pub struct State {
     /// the running pull as judged live; shown while following the newest pull
     live_raw: Option<Value>,
     pub live_report: Option<Report>,
+    /// the running Scrapper pull as judged live (`/api/scrapper/panel` of it)
+    pub live_scrap: Option<Value>,
     /// the pull whose log has come in: no more live judging until the next pull starts
     closed_pull: u64,
     pub history: Vec<Hist>,
@@ -140,9 +141,6 @@ impl State {
             ("Live off".to_string(), 0)
         } else if st.feed_at.is_none() {
             ("Live: no arcdps feed yet".to_string(), 0)
-        } else if self.self_elite == 43 {
-            // judge() sends nothing on a Scrapper: the live judge knows only the Berserker
-            ("Live: Berserker only, the log comes after the pull".to_string(), 0)
         } else if let Some((_, e)) = err_new {
             (format!("Live: {}", e.chars().take(48).collect::<String>()), 3)
         } else if in_pull && closed {
@@ -156,7 +154,7 @@ impl State {
         };
         let details = vec![
             format!("Your feed events: {}, last {}", st.feed_events, ago(st.feed_at)),
-            format!("Last hit {}; this pull: {} casts{}", ago(self.live.last_arrival), self.live.casts.len(), if closed { ", its log is in" } else { "" }),
+            format!("Last hit {}; this pull: {} hits{}", ago(self.live.last_arrival), self.live.hits, if closed { ", its log is in" } else { "" }),
             format!("Sent to the judge {} times, last {}", st.posts, ago(st.posted_at)),
             format!("Judged {} times, last {}; failed {}", st.oks, ago(st.ok_at), st.fails),
             match &st.err {
@@ -249,13 +247,13 @@ fn load() {
         icons: HashMap::new(),
         status: "waiting for the checker (run.bat)".into(),
         live: live::Live::default(),
-        rules: live::rules(),
         recorder,
         fill,
         dir,
         repo,
         live_raw: None,
         live_report: None,
+        live_scrap: None,
         closed_pull: 0,
         history: Vec::new(),
         selected: None,
@@ -388,6 +386,7 @@ fn poll_once(shown: &mut String, latest: &mut String) -> Result<(), String> {
                 s.live.end_pull();
                 s.live_report = None;
                 s.live_raw = None;
+                s.live_scrap = None;
             }
         });
     }
@@ -452,9 +451,8 @@ fn judge() {
     while !STOP.load(Ordering::SeqCst) {
         std::thread::sleep(Duration::from_millis(250));
         let job = with(|s| {
-            // the live judge knows the Berserker only
-            let fresh = s.self_elite != 43 && s.live.in_pull() && s.live.first_hit() != s.closed_pull && !s.live.casts.is_empty();
-            (fresh && s.live.version != sent).then(|| (s.live.to_json().to_string(), s.live.version, s.repo.clone()))
+            let fresh = s.live.in_pull() && s.live.first_hit() != s.closed_pull && s.live.hits > 0;
+            (fresh && s.live.version != sent).then(|| (s.live.to_json(s.self_elite).to_string(), s.live.version, s.repo.clone()))
         })
         .flatten();
         let Some((body, version, repo)) = job else { continue };
@@ -469,11 +467,20 @@ fn judge() {
                     s.lstat.ok_at = Some(Instant::now());
                     s.lstat.oks += 1;
                 });
-                if let Ok(raw) = serde_json::from_str::<Value>(&text) {
+                // {"kind": the build, "data": what the checker gives for a log of it}
+                if let Ok(mut raw) = serde_json::from_str::<Value>(&text) {
                     with(|s| {
-                        if s.live.first_hit() != s.closed_pull && raw.is_object() {
-                            s.live_report = report::digest(&raw, &s.fill);
-                            s.live_raw = Some(raw);
+                        let data = raw["data"].take();
+                        if s.live.first_hit() == s.closed_pull || !data.is_object() {
+                            return;
+                        }
+                        match raw["kind"].as_str() {
+                            Some("berserker") => {
+                                s.live_report = report::digest(&data, &s.fill);
+                                s.live_raw = Some(data);
+                            }
+                            Some("scrapper") => s.live_scrap = Some(data),
+                            _ => {}
                         }
                     });
                 }
@@ -551,13 +558,7 @@ fn on_combat(feed: &'static str, data: Option<&CombatData>) {
         if let Some(r) = s.recorder.as_mut() {
             r.write(feed, e, t);
         }
-        let direct = e.is_statechange == 0 && e.is_activation == 0 && e.is_buffremove == 0 && e.buff == 0;
-        if feed == "area" && direct && e.dst_agent != 0 {
-            s.live.hit(e.time, e.skill_id, &s.rules);
-        }
-        if feed == "area" && e.is_statechange == 69 {
-            s.live.buff(e.time, e.skill_id, &s.rules);
-        }
+        s.live.event(feed, e, d.dst().is_some_and(|a| a.is_self != 0));
     });
 }
 
@@ -613,39 +614,50 @@ mod judge_tests {
 
 #[cfg(test)]
 mod replay_tests {
-    /// `BB_REPLAY=<combat.jsonl> cargo test --release replay -- --nocapture` feeds a recorded
-    /// feed through the live pull and the running live judge, as the addon does, and prints each
-    /// pull as judged at its end.
+    /// `BB_REPLAY=<combat.jsonl> BB_ELITE=43 cargo test --release replay -- --nocapture` sends a
+    /// recorded feed's events to the running live judge as the addon does at the end of each pull
+    /// (a 12 s gap in your hits) and prints what came back. tools/livereplay.py does the same
+    /// against the logs.
     #[test]
     fn replay() {
         let Ok(path) = std::env::var("BB_REPLAY") else { return };
-        let rules = crate::live::rules();
-        let mut live = crate::live::Live::default();
-        let judge = |live: &crate::live::Live| {
-            let text = crate::report::post(super::JUDGE, "/compare", &live.to_json().to_string()).expect("judge");
-            let raw: serde_json::Value = serde_json::from_str(&text).unwrap();
-            let r = crate::report::digest(&raw, "budget").expect("digest");
-            println!("pull from {}: {} casts, {:.1} s, {} splits, behind {}", live.first_hit(), live.casts.len(), r.secs, r.parts.len(), crate::report::sgn(r.lag_end));
-        };
-        for line in std::fs::read_to_string(path).unwrap().lines() {
-            let j: serde_json::Value = serde_json::from_str(line).unwrap();
-            let e = &j["ev"];
-            if j["feed"] != "area" {
-                continue;
-            }
-            let (t, sc, sid) = (e["time"].as_u64().unwrap(), e["is_statechange"].as_u64().unwrap(), e["skill_id"].as_u64().unwrap() as u32);
-            let direct = sc == 0 && e["buff"] == 0 && e["is_buffremove"] == 0 && e["is_activation"] == 0 && e["dst_agent"] != 0;
-            if (direct || sc == 69) && t > live.last_hit() + 12_000 && live.casts.len() > 5 {
-                judge(&live);
-            }
-            if direct {
-                live.hit(t, sid, &rules);
-            } else if sc == 69 {
-                live.buff(t, sid, &rules);
+        let elite: u32 = std::env::var("BB_ELITE").ok().and_then(|e| e.parse().ok()).unwrap_or(18);
+        let lines: Vec<serde_json::Value> = std::fs::read_to_string(path).unwrap().lines().filter_map(|l| serde_json::from_str(l).ok()).collect();
+        // your agent: the target of your initial buffs (older recordings don't say)
+        let mut n = std::collections::HashMap::new();
+        for j in &lines {
+            if j["ev"]["is_statechange"] == 18 {
+                *n.entry(j["ev"]["dst_agent"].as_u64().unwrap()).or_insert(0) += 1;
             }
         }
-        if live.casts.len() > 5 {
-            judge(&live);
+        let me = n.into_iter().max_by_key(|x| x.1).map(|x| x.0);
+        let judge = |events: &[serde_json::Value]| {
+            let body = serde_json::json!({"elite": elite, "events": events}).to_string();
+            let text = crate::report::post(super::JUDGE, "/compare", &body).expect("judge");
+            let raw: serde_json::Value = serde_json::from_str(&text).unwrap();
+            let rows = raw["data"]["rows"].as_array().map_or(0, |r| r.len());
+            println!("pull: {} events, judged as {}, {rows} rows", events.len(), raw["kind"]);
+        };
+        let (mut pull, mut last) = (Vec::new(), 0u64);
+        for j in lines.iter().filter(|j| j["feed"] == "area") {
+            let e = &j["ev"];
+            let (t, sc) = (e["time"].as_u64().unwrap(), e["is_statechange"].as_u64().unwrap());
+            let direct = sc == 0 && e["buff"] == 0 && e["dst_agent"] != 0;
+            if direct && last != 0 && t > last + 12_000 {
+                judge(&pull);
+                pull.clear();
+            }
+            if direct {
+                last = t;
+            }
+            if matches!(sc, 0 | 18 | 69 | 72) {
+                pull.push(serde_json::json!({"time": t, "sc": sc, "buff": e["buff"], "skill": e["skill_id"], "value": e["value"],
+                    "buff_dmg": e["buff_dmg"], "result": e["result"], "buffremove": e["is_buffremove"], "dst": e["dst_agent"],
+                    "dst_self": Some(e["dst_agent"].as_u64().unwrap()) == me}));
+            }
+        }
+        if !pull.is_empty() {
+            judge(&pull);
         }
     }
 }

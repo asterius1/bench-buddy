@@ -22,7 +22,6 @@ sys.path.insert(0, str(HERE.parent.parent / "core"))
 import evtc_rot  # noqa: E402
 import kit  # noqa: E402
 import web  # noqa: E402
-from evtc_rot import evtc  # noqa: E402
 
 BENCH = HERE / "cache" / "bench.json"
 PERMALINK = "55xd-20260422-192633_golem"
@@ -51,7 +50,6 @@ DODGE = 23275
 CUT_MS = 100
 SLOW_MS = 50
 NAMES = {DODGE: "Dodge"}
-GOLEM_SPECIES = 16199
 
 
 # Hits a cast lands until the skill's next cast: the usual count in your logs (completed casts, 24 pulls),
@@ -85,32 +83,9 @@ def _intervals(applies, gones, start, end, initial=False):
 def read_mine(path):
     """Your casts and buff intervals (ms from the log start; t0 is your first cast)."""
     r = evtc_rot.read(path)
-    agents, skills, events = evtc.load(path)
-    me = next(a for a in agents.values() if a.is_player and a.name == r["player"])
-    golem = {a.addr for a in agents.values() if a.species == GOLEM_SPECIES}
-    first = events[0].time
-    app, gone, init = {}, {}, set()
-    dmg, last_hit = 0, None
-    hits, started, stop_only = {}, set(), {}
-    for e in events:
-        t = e.time - first
-        if e.src == me.addr and e.sc == 67:
-            started.add(e.skill)
-        elif e.src == me.addr and e.sc == 68 and e.skill not in started and e.skill not in stop_only:
-            stop_only[e.skill] = (t, e.value)        # cast under way when the log started
-        if e.sc == 0 and e.buff == 0 and e.src == me.addr and e.dst in golem and e.value > 0:
-            hits.setdefault(e.skill, []).append(t)
-        if e.sc == 18 and e.dst == me.addr:
-            init.add(e.skill)
-        elif e.sc == 69 and e.dst == me.addr:
-            app.setdefault(e.skill, []).append(t)
-        elif e.sc == 72 and e.src == me.addr:
-            gone.setdefault(e.skill, []).append(t)
-        elif e.sc == 0 and e.src == me.addr and e.dst in golem:
-            d = e.value if e.buff == 0 else e.buff_dmg
-            if d > 0:
-                dmg += d
-                last_hit = t
+    skills, hits, stop_only = r["names"], r["hits_at"], r["under_way"]
+    app, gone, init = r["buffs"], r["buffs_lost"], set(r["buffs_init"])
+    dmg, last_hit = r["damage"], r["last_hit"]
     casts = []
     for c in r["casts"]:
         dur = c["dur"] if c["dur"] is not None else c["exp"]

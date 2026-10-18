@@ -22,23 +22,30 @@ every addon, and the checker's answers.
 `<GW2>/addons/bench_buddy/settings.json` holds the filler mode, and may hold `"repo"`: the checkout
 the live judge is started from. Without it the addon asks the running checker where it lives.
 
-## Live splits (Condi Berserker)
+## Live (every build)
 
-While a pull runs the panel fills in, about 2.7 s behind you. The arcdps live feed carries your hits
-but no casts, cancels or weapon swaps (measured: every direct hit and condition tick of yours is on
-the area feed 2.65 s after it happened; no cast start or end at all). So casts are put back from
-hits: a damaging skill's first hit comes a fixed time after its cast starts (Scorched Earth 318 ms,
-Fan of Fire 234, Blaze Breaker 400, Savage Leap 800, spread about 20 ms). `tools/livecast.py`
-measures that per skill from your logs into `casts.json`; on 10 recorded pulls 340 of 341 guessed
-casts were real, starts within 2 ms (median). Casts that never hit (cancelled autos, stow, dodge,
-Blood Reckoning) come only with the log.
+While a pull runs the panel fills in. The arcdps feeds carry your hits but no casts, cancels or
+weapon swaps (no cast start or end at all). Every direct hit of yours comes on both feeds: on the
+local feed about 20 ms after it happened, on the area feed 2.65 s after, with the exact time. The
+addon takes the local hit at once and lets the area copy correct its time; buffs and condition
+ticks come from the area feed only. It sends your events once a second, as they are, to the live
+judge, `core/live_server.py` on 127.0.0.1:8772.
 
-The addon sends those casts once a second to the live judge, `core/live_server.py` on
-127.0.0.1:8772, which runs the Berserker module's own `compare()` on them, so live and log are judged
-by the same code. The addon starts the judge with `pythonw` when nothing answers; it exits after 15
-minutes idle. When the log arrives, the real report replaces the live one. The title row shows the
-live state (grey ready, green judging, amber waiting, red with the error); errors go to
-`core/cache/live_server.log`. The live judge knows only the Berserker; on a Scrapper nothing is sent.
+The judge puts the casts back (`core/live.py`): a damaging skill's first hit comes a fixed time
+after its cast starts (Scorched Earth 318 ms, Electro-whirl, Blaze Breaker 400, spread about 20 ms),
+and a skill that does no damage by a buff it puts on you at a fixed time (Flames of War, a
+Scrapper's dodge, Reconstruction Field by Protection with Superspeed). `tools/livecast.py` measures
+both from all your golem logs into `core/livecasts.json` and checks them on a recording: on a
+Scrapper session 185 of 210 casts came back, none wrong, starts within 2 ms (median); the rest
+were cancelled autos that never hit and Medic Gyro (no hit, no steady buff). Then the build's own
+module judges the pull as it judges a log, so a module that reads its pulls through
+`core/evtc_rot.py` gets live with no code of its own; `tools/livereplay.py` holds a recording
+against the logs (a Scrapper's cycle lengths came out within 10 ms).
+
+The addon starts the judge with `pythonw` when nothing answers; it exits after 15 minutes idle.
+When the log arrives, the real report replaces the live one. The title row shows the live state
+(grey ready, green judging, amber waiting, red with the error); errors go to
+`core/cache/live_server.log`.
 
 ## Files
 
@@ -48,14 +55,14 @@ live state (grey ready, green judging, amber waiting, red with the error); error
 | `src/report.rs` | Reduces the Berserker `/api/compare` report to what is drawn, following `modules/berserker/views/splits.html`. |
 | `src/panel.rs` | Draws the Berserker Splits panel and its hover cards. |
 | `src/scrap.rs` | Draws the Scrapper grid from `/api/scrapper/panel`, already reduced by `modules/scrapper/panel.py`. |
-| `src/live.rs` | Puts casts back from live hits (`casts.json`) and records your feed events to `addons/bench_buddy/sessions/` for `tools/feedcheck.py`. |
+| `src/live.rs` | Keeps the running pull's feed events for the live judge, and records your feed events to `addons/bench_buddy/sessions/` for `tools/feedcheck.py`. |
 
 ## Tests
 
 `cargo test --release` runs the offline tests. Some tests talk to running servers and only run when
 asked: `BB_CHECKER=1` (the checker on 8771), `BB_SCRAP=1` (the newest scrapper pull's fields),
 `BB_SPAWN=1` (starts the live judge as the addon does), `BB_REPORT=<saved /api/compare json>` and
-`BB_REPLAY=<combat.jsonl>` (feeds a recorded session through the live judge). Add
+`BB_REPLAY=<combat.jsonl>` with `BB_ELITE=<spec id>` (feeds a recorded session through the live judge). Add
 `-- --nocapture` to see their output.
 
 ## Adding a build to the addon

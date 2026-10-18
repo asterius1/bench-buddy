@@ -56,7 +56,7 @@ arcdps log (.zevtc)
 | `modules/scrapper/` | Power Scrapper: analysis, pages and what the addon draws. [README](modules/scrapper/README.md) |
 | `modules/_template/` | A small working module to copy for a new build. |
 | `addon/` | The Nexus addon (Rust). [README](addon/README.md) |
-| `tools/` | Helpers: `whatlog.py` (what your logs hold), `feedcheck.py` and `livecast.py` (live feed research). |
+| `tools/` | Helpers: `whatlog.py` (what your logs hold), `feedcheck.py`, `livecast.py` and `livereplay.py` (the live feed: what it carries, the cast table, a recording judged against its logs). |
 | `AGENTS.md` | Notes for AI coding agents: architecture, the module contract, rules of thumb. |
 
 ## Add your own build

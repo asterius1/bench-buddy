@@ -166,16 +166,35 @@ pub fn all_golem_logs() -> Vec<PathBuf> {
     golem_scan().into_iter().map(|(p, _)| p).collect()
 }
 
-fn golem_scan() -> Vec<(PathBuf, HashMap<u32, HashSet<i64>>)> {
+/// The log folder's .zevtc files from October 2026 on with their sizes, oldest first; walked again
+/// at most once a second.
+fn files() -> Vec<(PathBuf, u64)> {
+    static LAST: Mutex<Option<(std::time::Instant, PathBuf, Vec<(PathBuf, u64)>)>> = Mutex::new(None);
+    let root = logs_dir();
+    let mut g = LAST.lock().unwrap_or_else(|e| e.into_inner());
+    if let Some((t, r, v)) = g.as_ref() {
+        if t.elapsed().as_millis() < 1000 && *r == root {
+            return v.clone();
+        }
+    }
     let mut ps = vec![];
-    walk(&logs_dir(), &mut ps);
+    walk(&root, &mut ps);
     ps.retain(|p| stem(p).as_str() >= FIRST_ANIMATED);
     ps.sort_by(|a, b| stem(a).cmp(&stem(b)).then(a.cmp(b)));
+    let v: Vec<(PathBuf, u64)> = ps.into_iter().map(|p| {
+        let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+        (p, size)
+    }).collect();
+    *g = Some((std::time::Instant::now(), root, v.clone()));
+    v
+}
+
+fn golem_scan() -> Vec<(PathBuf, HashMap<u32, HashSet<i64>>)> {
+    let ps = files();
     let mut guard = SEEN.lock().unwrap_or_else(|e| e.into_inner());
     let seen = guard.get_or_insert_with(HashMap::new);
     let mut out = vec![];
-    for p in ps {
-        let size = std::fs::metadata(&p).map(|m| m.len()).unwrap_or(0);
+    for (p, size) in ps {
         if seen.get(&p).is_none_or(|s| s.size != size) {
             let golem = evtc::species(&p) == Some(GOLEM_SPECIES as u16);
             let cast = if golem {

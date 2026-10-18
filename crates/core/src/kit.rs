@@ -297,3 +297,18 @@ pub fn local_stamp() -> String {
         format!("{s}")
     }
 }
+
+/// Python's sum() of floats (3.12 on): compensated (Neumaier) summation, so totals match to the bit.
+pub fn psum(xs: impl IntoIterator<Item = f64>) -> f64 {
+    let (mut s, mut c) = (0.0f64, 0.0f64);
+    for x in xs {
+        let t = s + x;
+        if s.abs() >= x.abs() {
+            c += (s - t) + x;
+        } else {
+            c += (x - t) + s;
+        }
+        s = t;
+    }
+    if c != 0.0 && c.is_finite() { s + c } else { s }
+}

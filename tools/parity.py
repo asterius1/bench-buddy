@@ -56,6 +56,29 @@ def diff(a, b, path="", out=None):
     return out
 
 
+INSTANT = {6162, 6166, -37, 76326}   # the Scrapper sheet's instants
+
+
+def normal(path, v):
+    """What may differ on purpose: the Scrapper bench sheet's usual skills that are instants all tie
+    at the end of their column, in Python's set order; compared as a set."""
+    if path.startswith("/api/scrapper/bench") and isinstance(v, dict):
+        for col in v.get("usual", []):
+            col[:] = [x for x in col if x["id"] not in INSTANT] + sorted((x for x in col if x["id"] in INSTANT), key=lambda x: x["id"])
+    return v
+
+
+def view_parts(html):
+    """A Berserker view: the page around the inlined data, and the data (PULL, ICONS) as JSON."""
+    a = html.find("<script>window.PULL = ")
+    b = html.find("</script>", a)
+    if a < 0 or b < 0:
+        return html, None
+    data = html[a + len("<script>window.PULL = "):b].replace(r"<\/", "</")
+    pull, _, icons = data.partition(";\nwindow.ICONS = ")
+    return html[:a] + html[b:], [json.loads(pull), json.loads(icons.rstrip().rstrip(";"))]
+
+
 def short(v):
     s = json.dumps(v, ensure_ascii=False)
     return s if len(s) < 120 else s[:117] + "..."
@@ -105,10 +128,11 @@ def main():
                 timing[port] += time.time() - t
             a, b = out
             if html:
-                d = [] if a == b else [(path, a[:80], b[:80])]
+                (pa, da), (pb, db) = view_parts(a), view_parts(b)
+                d = ([] if pa == pb else [("page", pa[:80], pb[:80])]) + (diff(da, db) if da is not None or db is not None else [])
             else:
                 try:
-                    d = diff(json.loads(a), json.loads(b))
+                    d = diff(normal(path, json.loads(a)), normal(path, json.loads(b)))
                 except ValueError:
                     d = [("", a[:100], b[:100])] if a != b else []
             if d:

@@ -584,7 +584,7 @@ fn chip(it: Item, mine: &[Cast], refs: &[Cast], t0: f64, rt0: f64) -> Value {
 }
 
 fn uptime(iv: &[(f64, f64)], a: f64, b: f64) -> Option<f64> {
-    (b > a).then(|| iv.iter().map(|&(x, y)| (y.min(b) - x.max(a)).max(0.0)).sum::<f64>() / (b - a))
+    (b > a).then(|| kit::psum(iv.iter().map(|&(x, y)| (y.min(b) - x.max(a)).max(0.0))) / (b - a))
 }
 
 /// Object in Motion: +5% strike damage per boon among stability, swiftness and superspeed.
@@ -644,7 +644,7 @@ fn rows(side: &Side) -> Vec<Cycle> {
 }
 
 fn mean_round(xs: &[f64]) -> Value {
-    if xs.is_empty() { Value::Null } else { num(round0(xs.iter().sum::<f64>() / xs.len() as f64)) }
+    if xs.is_empty() { Value::Null } else { num(round0(kit::psum(xs.iter().copied()) / xs.len() as f64)) }
 }
 
 /// One pull cycle by cycle against the bench cycle of the same number; None without casts.

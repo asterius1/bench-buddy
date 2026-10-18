@@ -543,7 +543,7 @@ const WINDOWS: [(f64, f64); 6] = [(0.0, 5.0), (5.0, 10.0), (10.0, 15.0), (15.0, 
 const OPENING_S: usize = 30;
 
 fn avg_stacks(iv: &[(f64, f64)], a: f64, b: f64) -> f64 {
-    round_n(iv.iter().map(|&(x, y)| (y.min(b) - x.max(a)).max(0.0)).sum::<f64>() / (b - a), 1)
+    round_n(kit::psum(iv.iter().map(|&(x, y)| (y.min(b) - x.max(a)).max(0.0))) / (b - a), 1)
 }
 
 fn ref_damage(log: &Value) -> RefDamage {

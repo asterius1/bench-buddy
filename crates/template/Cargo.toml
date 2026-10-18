@@ -1,0 +1,9 @@
+[package]
+name = "bb_template"
+description = "Bench Buddy: the starting point for a new build"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { workspace = true }
+bb_core = { workspace = true }

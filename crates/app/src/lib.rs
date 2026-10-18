@@ -14,31 +14,11 @@ use bb_core::rot::{self, Record};
 use bb_core::{live, omap::OMap};
 use serde_json::{json, Value};
 
-/// A build that follows the simple contract: served at /<route>, /api/<route>/latest, /history and
-/// /compare?log=. `crates/template` is the starting point.
-pub trait Build: Send + Sync {
-    fn name(&self) -> &str;
-    fn route(&self) -> &str;
-    /// the elite spec id in arcdps, for live judging
-    fn elite(&self) -> u32;
-    /// the page, in modules/<route>/
-    fn page(&self) -> &str {
-        "page.html"
-    }
-    fn logs(&self) -> Vec<PathBuf>;
-    /// one pull against the bench, as JSON for the page; `path` is None for a live pull
-    fn compare(&self, rec: &Record, path: Option<&Path>) -> Result<Option<Value>, String>;
-    /// one row per pull for the picker; None: just the logs
-    fn history(&self) -> Option<Vec<Value>> {
-        None
-    }
-    /// the live record adjusted before compare() (the Berserker puts back its weapon swaps)
-    fn live(&self, rec: Record) -> Record {
-        rec
-    }
-}
+pub use bb_core::build::Build;
 
-/// The builds of the simple contract, each with its cache folder. Add yours here.
+/// The builds of the simple contract, each with its cache folder. Add yours here, and to Cargo.toml:
+///     Box::new(bb_firebrand::Firebrand::new(cache("firebrand"))),
+/// The template (`crates/template`) is not listed: it is the starting point, not a build.
 pub fn simple_builds(_cache: &dyn Fn(&str) -> PathBuf) -> Vec<Box<dyn Build>> {
     vec![]
 }

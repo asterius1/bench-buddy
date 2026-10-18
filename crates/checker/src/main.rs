@@ -5,6 +5,7 @@
 //!     checker [port] [--no-browser]             the pages
 //!     checker api /api/scrapper/compare?log=<stem>   one route's JSON, without the server
 //!     checker live <capture.live.json>          a saved live capture judged as the addon judges it
+//!     checker snapshot [--save]                 every answer against a saved run (see snapshot.rs)
 //!
 //! Watches the golem logs: each page asks every few seconds for the newest log of its build and shows
 //! it as soon as arcdps has written it. Nothing is uploaded; each build's bench log is downloaded once
@@ -22,6 +23,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
+
+mod snapshot;
 
 use bb_app::{App, Caches};
 use serde_json::{json, Value};
@@ -291,6 +294,10 @@ fn main() {
                 Err(e) => fail(&e),
             }
             return;
+        }
+        Some("snapshot") => {
+            let app = App::new(caches(&root));
+            std::process::exit(snapshot::run(&app, &root.join("cache").join("snapshot"), args.iter().any(|a| a == "--save")));
         }
         Some("live") => {
             let app = App::new(caches(&root));

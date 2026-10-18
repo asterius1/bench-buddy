@@ -78,6 +78,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "bb_template"
+version = "0.1.0"
+dependencies = [
+ "bb_core",
+ "serde_json",
+]
+
+[[package]]
 name = "bbtool"
 version = "0.1.0"
 dependencies = [

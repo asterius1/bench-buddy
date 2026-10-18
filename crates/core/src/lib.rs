@@ -2,6 +2,7 @@
 //! arcdps log reader, one player's record of a pull, the helpers the builds share (the bench's casts,
 //! matching yours with them, number formats) and the downloads.
 
+pub mod build;
 pub mod difflib;
 pub mod evtc;
 pub mod kit;

@@ -3,8 +3,8 @@
 //! whirl cells (bomb burst, nade filler, other filler) and the cycle split, every icon's marks and
 //! every card's text. This only lays them out. A button swaps to the bench cheat sheet.
 
-use super::{dashed_rect, icon, line_h, rgb, rgba, rtxt, tempo, tw, txt, with_font, C, F};
-use super::{ACCENT, BAD, BLACK, BORDER, HOVER, INK, INK2, MUTED, OK, SEC_BG, TIP, WARN};
+use super::{dashed_rect, icon, line_h, rgb, rgba, rtxt, tempo, tw, txt, with_font, Mark, C, F, MK_BAD, MK_ORDER, MK_SLOW, MK_WARN};
+use super::{ACCENT, BAD, BORDER, HOVER, INK, INK2, MUTED, OK, SEC_BG, TIP, WARN};
 use nexus::imgui::{Condition, DrawListMut, MouseButton, StyleColor, StyleVar, Ui, Window, WindowFlags};
 use serde_json::Value;
 use std::collections::HashMap;
@@ -46,13 +46,7 @@ fn sgn(ms: f64) -> String {
     format!("{}{:.2}", if ms > 0.0 { "+" } else if ms < 0.0 { "\u{2212}" } else { "\u{b1}" }, ms.abs() / 1000.0)
 }
 
-const KIT: [(u32, &str); 18] = [
-    (5807, "grenade"), (5809, "grenade"), (5806, "grenade"), (5810, "grenade"),
-    (5823, "bomb"), (5822, "bomb"), (5813, "bomb"), (76530, "bomb"),
-    (30885, "mortar"), (30307, "mortar"), (56920, "gyro"), (30357, "gyro"),
-    (6161, "mine"), (6164, "mine"), (30088, "hammer"), (30713, "hammer"), (30501, "hammer"), (29785, "hammer"),
-];
-
+/// A kit's colour, for the strip under the cheat sheet's icons.
 fn kit_c(k: &str) -> C {
     match k {
         "grenade" => rgb(74, 194, 107),
@@ -64,61 +58,50 @@ fn kit_c(k: &str) -> C {
     }
 }
 
-fn kit_of(id: u32) -> &'static str {
-    KIT.iter().find(|k| k.0 == id).map_or("hammer", |k| k.1)
-}
-
 fn has(v: &Value, flag: &str) -> bool {
     v["f"].as_array().is_some_and(|a| a.iter().any(|x| x == flag))
 }
 
-/// One icon with the page's marks; returns whether the mouse is on it.
+/// One icon with its marks (`Mark` in panel.rs); returns whether the mouse is on it.
 fn mark_icon(ui: &Ui, dl: &DrawListMut, p: [f32; 2], s: f32, w: f32, c: &Value, icons: &HashMap<u32, String>) -> bool {
     let id = c["id"].as_u64().unwrap_or(0) as u32;
     let name = c["name"].as_str().unwrap_or("");
-    let gone = has(c, "ghost") || has(c, "movedfrom");
     let q = [p[0] + w, p[1] + s];
     if w > s + 0.5 {
         dl.add_rect(p, q, rgb(42, 43, 46)).filled(true).build();
-        icon(ui, dl, [p[0] + 2.0, p[1] + s * 0.17], s * 0.66, id, name, icons, gone);
+        icon(ui, dl, [p[0] + 2.0, p[1] + s * 0.17], s * 0.66, id, name, icons, false);
     } else {
-        icon(ui, dl, p, s, id, name, icons, gone);
+        icon(ui, dl, p, s, id, name, icons, false);
     }
-    dl.add_rect([p[0], q[1]], [q[0], q[1] + 3.0], kit_c(kit_of(id))).filled(true).build();
+    let mut m = Mark::default();
     if has(c, "ghost") {
-        dashed_rect(dl, [p[0], p[1]], q, BAD, 1.5);
-    }
-    if has(c, "movedfrom") {
-        dashed_rect(dl, [p[0], p[1]], q, MUTED, 1.0);
-    }
-    if has(c, "few") {
-        dl.add_rect([p[0] + 1.0, p[1] + 1.0], [q[0] - 1.0, q[1] - 1.0], BAD).thickness(2.0).build();
+        m.edge = Some((MK_BAD, true));
+        m.cross = true;
+    } else if has(c, "cancel") {
+        m.edge = Some((MK_BAD, false));
+        m.slash = true;
+    } else if has(c, "few") {
+        m.edge = Some((MK_BAD, false));
+        m.label = Some((c["hits"].as_str().unwrap_or("").to_string(), MK_BAD));
+    } else if has(c, "extra") {
+        m.edge = Some((MK_WARN, false));
+        m.label = Some(("+1".into(), MK_WARN));
+    } else if has(c, "moved") {
+        // filler order: the bench casts it in another whirl of this cycle
+        m.edge = Some((MK_ORDER, false));
+    } else if has(c, "movedfrom") {
+        m.edge = Some((MK_ORDER, true));
+    } else if has(c, "cdlate") {
+        m.label = Some(("CD".into(), MK_SLOW[1]));
     }
     if has(c, "slow") {
-        dl.add_rect([p[0], q[1]], [q[0], q[1] + 4.0], WARN).filled(true).build();
+        m.slow(f(&c["lost"]));
     }
-    if has(c, "cdlate") {
-        dl.add_circle([p[0] + 1.0, p[1] + 1.0], 4.5, BLACK).filled(true).build();
-        dl.add_circle([p[0] + 1.0, p[1] + 1.0], 3.5, WARN).filled(true).build();
-    }
-    if has(c, "fervor") {
-        dl.add_rect([p[0], p[1] - 3.0], [q[0], p[1] - 1.0], rgb(208, 71, 58)).filled(true).build();
-    }
-    if has(c, "inferred") {
+    if has(c, "inferred") && m.edge.is_none() {
         dashed_rect(dl, p, q, INK2, 1.0);
     }
-    if has(c, "extra") {
-        let (x, y) = (q[0] - 4.0, p[1] - 7.0);
-        for (dx, dy) in [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)] {
-            txt(dl, F::SemiS, [x + dx, y + dy], BLACK, "+");
-        }
-        txt(dl, F::SemiS, [x, y], INK, "+");
-    }
-    if has(c, "moved") {
-        // a small blue corner: the bench casts it in another whirl
-        dl.add_triangle([q[0] - 9.0, p[1]], [q[0], p[1]], [q[0], p[1] + 9.0], ACCENT).filled(true).build();
-    }
-    let hov = ui.is_mouse_hovering_rect(p, [q[0], q[1] + 3.0]);
+    m.draw(dl, p, q);
+    let hov = ui.is_mouse_hovering_rect(p, q);
     if hov {
         dl.add_rect([p[0] - 1.0, p[1] - 1.0], [q[0] + 1.0, q[1] + 1.0], INK).build();
     }
@@ -296,9 +279,9 @@ pub fn draw(ui: &Ui, dl: &DrawListMut, p: [f32; 2], size: [f32; 2], v: &Value, s
     let fy = y + 4.0;
     dl.add_line([x0, fy - 3.0], [x0 + w, fy - 3.0], BORDER).build();
     let mut fx = x0;
-    for (c, label) in [(BAD, "missed (dashed) · missed hits (box)"), (WARN, "late"), (ACCENT, "other whirl"), (rgb(208, 71, 58), "Fervor")] {
-        dl.add_rect([fx, fy + 3.0], [fx + 10.0, fy + 13.0], c).filled(true).rounding(2.0).build();
-        fx += 14.0;
+    for (k, label) in [("ghost", "missed"), ("cancel", "cancelled"), ("few", "missed hits"), ("extra", "extra"), ("order", "filler order"), ("slow", "next cast late")] {
+        super::mark_swatch(dl, [fx, fy + 1.0], 14.0, k);
+        fx += 19.0;
         txt(dl, F::Small, [fx, fy], MUTED, label);
         fx += tw(ui, F::Small, label) + 12.0;
     }
@@ -309,12 +292,6 @@ fn draw_cell(ui: &Ui, dl: &DrawListMut, a: [f32; 2], b: [f32; 2], c: &Value, all
     let hovered = ui.is_mouse_hovering_rect(a, b);
     let d = f(&c["delta"]);
     dl.add_rect(a, b, tempo(d)).filled(true).rounding(5.0).build();
-    let (ia, ib) = ([a[0] + 1.0, a[1] + 1.0], [b[0] - 1.0, b[1] - 1.0]);
-    match c["border"].as_str() {
-        Some("err") => dl.add_rect(ia, ib, BAD).rounding(5.0).thickness(2.0).build(),
-        Some("xtra") => dl.add_rect(ia, ib, WARN).rounding(5.0).thickness(2.0).build(),
-        _ => {}
-    }
     if hovered {
         dl.add_rect(a, b, ACCENT).rounding(5.0).build();
     }

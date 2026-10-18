@@ -239,36 +239,152 @@ fn dashed_rect(dl: &DrawListMut, a: [f32; 2], b: [f32; 2], c: C, t: f32) {
     seg([a[0], b[1]], a);
 }
 
-/// The marks the page puts on a problem cast (`.ic.slow`, `.idle`, `.few`, `.nobuff`, `.extra`,
-/// `.ghost`).
+// ---- skill marks ----------------------------------------------------------------------
+
+// The marks' own colours, more saturated than the text colours so they read on a small icon
+const MK_BAD: C = rgb(255, 43, 43);
+const MK_WARN: C = rgb(255, 179, 0);
+const MK_ORDER: C = rgb(61, 155, 255);
+/// a slow cast's delay: under 0.15 s, under 0.4 s, more
+const MK_SLOW: [C; 3] = [rgb(185, 182, 166), rgb(255, 204, 0), rgb(255, 115, 0)];
+
+/// What a skill icon carries: a line in the icon's own black frame (red when the rotation is wrong,
+/// amber for an extra cast, blue for filler order; dashed when the cast is missing), a cross or a
+/// slash over it, a label in a dark strip along its bottom, and a grey wash over a slow cast.
+#[derive(Default)]
+struct Mark {
+    edge: Option<(C, bool)>,
+    cross: bool,
+    slash: bool,
+    label: Option<(String, C)>,
+    wash: f32,
+}
+
+impl Mark {
+    /// A slow cast shows its delay, and greys out more the smaller the delay is; marks for a
+    /// wrong rotation take its place.
+    fn slow(&mut self, lost: Option<f64>) {
+        if self.edge.is_some() || self.label.is_some() {
+            return;
+        }
+        let l = lost.unwrap_or(0.0);
+        let lv = if l >= 400.0 { 2 } else if l >= 150.0 { 1 } else { 0 };
+        let t = format!("{:.2}", l.max(0.0) / 1000.0);
+        self.label = Some((format!("+{}", t.strip_prefix('0').unwrap_or(&t)), MK_SLOW[lv]));
+        self.wash = [0.6, 0.35, 0.1][lv];
+    }
+
+    fn draw(&self, dl: &DrawListMut, p: [f32; 2], q: [f32; 2]) {
+        let s = (q[0] - p[0]).min(q[1] - p[1]);
+        // the icon files have a black frame of 15 of 128 px a side; the line sits inside it
+        let fr = s * 0.117;
+        if self.wash > 0.0 {
+            dl.add_rect([p[0] + fr, p[1] + fr], [q[0] - fr, q[1] - fr], rgba(40, 40, 38, self.wash)).filled(true).build();
+        }
+        if let Some((c, dashed)) = self.edge {
+            let th = (fr * 0.56).max(1.5);
+            let i = fr * 0.22 + th / 2.0;
+            let (a, b) = ([p[0] + i, p[1] + i], [q[0] - i, q[1] - i]);
+            if dashed {
+                dashed_rect(dl, a, b, c, th);
+            } else {
+                dl.add_rect(a, b, c).thickness(th).build();
+            }
+        }
+        let (cx, cy, r) = ((p[0] + q[0]) / 2.0, (p[1] + q[1]) / 2.0, s * 0.24);
+        let stroke = |a: [f32; 2], b: [f32; 2]| {
+            dl.add_line(a, b, BLACK).thickness(s * 0.17).build();
+            dl.add_line(a, b, MK_BAD).thickness(s * 0.09).build();
+        };
+        if self.cross {
+            stroke([cx - r, cy - r], [cx + r, cy + r]);
+            stroke([cx - r, cy + r], [cx + r, cy - r]);
+        }
+        if self.slash {
+            stroke([cx - r * 1.3, cy + r * 1.3], [cx + r * 1.3, cy - r * 1.3]);
+        }
+        if let Some((t, c)) = &self.label {
+            let px = (s * 0.3).clamp(8.0, 13.0);
+            let h = px + 2.0;
+            let (a, b) = ([p[0] + fr, q[1] - fr - h], [q[0] - fr, q[1] - fr]);
+            dl.add_rect(a, b, rgba(0, 0, 0, 0.82)).filled(true).build();
+            txt_px(F::SemiS, px, [cx, (a[1] + b[1]) / 2.0], *c, t);
+        }
+    }
+}
+
+/// Text in `font` drawn `px` tall, centred on `c`: the strip labels need sizes the loaded fonts don't
+/// have.
+fn txt_px(font: F, px: f32, c: [f32; 2], col: C, s: &str) {
+    unsafe {
+        let mut f = LOADED[font as usize].load(Ordering::Acquire) as *mut sys::ImFont;
+        if f.is_null() {
+            f = sys::igGetFont();
+        }
+        let (b, e) = (s.as_ptr() as *const c_char, s.as_ptr().add(s.len()) as *const c_char);
+        let mut sz = sys::ImVec2 { x: 0.0, y: 0.0 };
+        sys::ImFont_CalcTextSizeA(&mut sz, f, px, f32::MAX, 0.0, b, e, std::ptr::null_mut());
+        let pos = sys::ImVec2 { x: (c[0] - sz.x / 2.0).round(), y: (c[1] - sz.y / 2.0).round() };
+        let col = sys::igColorConvertFloat4ToU32(sys::ImVec4 { x: col[0], y: col[1], z: col[2], w: col[3] });
+        sys::ImDrawList_AddText_FontPtr(sys::igGetWindowDrawList(), f, px, pos, col, b, e, 0.0, std::ptr::null());
+    }
+}
+
+/// The marks on a Berserker problem cast; idle and no buff keep their side bar and dot.
 fn marks(ui: &Ui, dl: &DrawListMut, p: [f32; 2], s: f32, c: &Chip) {
     let q = [p[0] + s, p[1] + s];
+    let mut m = Mark::default();
     if c.kind == "ghost" {
-        dashed_rect(dl, [p[0] - 1.0, p[1] - 1.0], [q[0] + 1.0, q[1] + 1.0], BAD, 1.5);
+        m.edge = Some((MK_BAD, true));
+        m.cross = true;
+    } else if c.has("few") && c.hits == Some(0) {
+        m.edge = Some((MK_BAD, false));
+        m.slash = true;
+    } else if c.has("few") {
+        m.edge = Some((MK_BAD, false));
+        m.label = Some((format!("{}/{}", c.hits.unwrap_or(0), c.expect.unwrap_or(0)), MK_BAD));
+    } else if c.kind == "extra" {
+        m.edge = Some((MK_WARN, false));
+        m.label = Some(("+1".into(), MK_WARN));
     }
     if c.has("slow") {
-        dl.add_rect([p[0], q[1]], [q[0], q[1] + 3.0], WARN).filled(true).build();
+        m.slow(c.lost);
     }
+    m.draw(dl, p, q);
     if c.has("idle") {
         dl.add_rect([q[0] + 1.0, p[1] + 3.0], [q[0] + 4.0, q[1] - 3.0], WARN).filled(true).rounding(2.0).build();
-    }
-    if c.has("few") {
-        dl.add_circle([q[0] + 1.5, q[1] + 1.5], 4.5, BLACK).filled(true).build();
-        dl.add_circle([q[0] + 1.5, q[1] + 1.5], 3.5, BAD).filled(true).build();
     }
     if c.has("nobuff") {
         dl.add_circle([p[0] - 1.5, q[1] + 1.5], 4.5, BLACK).filled(true).build();
         dl.add_circle([p[0] - 1.5, q[1] + 1.5], 3.5, ACCENT).filled(true).build();
     }
-    if c.kind == "extra" {
-        let x = q[0] - 4.0;
-        let y = p[1] - 7.0;
-        for (dx, dy) in [(-1.0, 0.0), (1.0, 0.0), (0.0, -1.0), (0.0, 1.0)] {
-            txt(dl, F::SemiS, [x + dx, y + dy], BLACK, "+");
-        }
-        txt(dl, F::SemiS, [x, y], INK, "+");
-    }
     let _ = ui;
+}
+
+/// A legend tile: a grey square with one kind's marks.
+fn mark_swatch(dl: &DrawListMut, p: [f32; 2], s: f32, kind: &str) {
+    let q = [p[0] + s, p[1] + s];
+    dl.add_rect(p, q, BLACK).filled(true).rounding(2.0).build();
+    let fr = s * 0.117;
+    dl.add_rect([p[0] + fr, p[1] + fr], [q[0] - fr, q[1] - fr], rgb(95, 95, 92)).filled(true).build();
+    let mut m = Mark::default();
+    match kind {
+        "ghost" => {
+            m.edge = Some((MK_BAD, true));
+            m.cross = true;
+        }
+        "cancel" => {
+            m.edge = Some((MK_BAD, false));
+            m.slash = true;
+        }
+        "few" => m.edge = Some((MK_BAD, false)),
+        "extra" => m.edge = Some((MK_WARN, false)),
+        "order" => m.edge = Some((MK_ORDER, false)),
+        "slow" => m.slow(Some(260.0)),
+        _ => {}
+    }
+    m.label = m.label.filter(|_| s >= 20.0);
+    m.draw(dl, p, q);
 }
 
 // ---- the panel ------------------------------------------------------------------------
@@ -545,21 +661,7 @@ fn chevron(ui: &Ui, dl: &DrawListMut, p: [f32; 2], left: bool, enabled: bool) ->
 }
 
 fn swatch(dl: &DrawListMut, p: [f32; 2], kind: &str) {
-    let q = [p[0] + 14.0, p[1] + 14.0];
-    match kind {
-        "ghost" => dashed_rect(dl, p, q, BAD, 1.5),
-        "err" => dl.add_rect([p[0] + 1.0, p[1] + 1.0], [q[0] - 1.0, q[1] - 1.0], BAD).rounding(3.0).thickness(2.0).build(),
-        "xtra" => dl.add_rect([p[0] + 1.0, p[1] + 1.0], [q[0] - 1.0, q[1] - 1.0], WARN).rounding(3.0).thickness(2.0).build(),
-        _ => {
-            dl.add_rect(p, q, rgb(85, 85, 85)).filled(true).rounding(3.0).build();
-            match kind {
-                "slow" => dl.add_rect([p[0], q[1]], [q[0], q[1] + 3.0], WARN).filled(true).build(),
-                "few" => dl.add_circle([q[0], q[1]], 3.0, BAD).filled(true).build(),
-                "extra" => txt(dl, F::SemiS, [q[0] - 4.0, p[1] - 7.0], INK, "+"),
-                _ => {}
-            }
-        }
-    }
+    mark_swatch(dl, p, 14.0, kind);
 }
 
 /// The title row: previous, the pull (opens the list), next; "newest" when looking back; the live
@@ -712,13 +814,12 @@ fn draw_report(
     let mut fx = x0;
     let fy = fy + 7.0;
     for (k, label) in [
-        ("slow", "next cast late"),
         ("ghost", "missed"),
+        ("cancel", "cancelled"),
         ("few", "missed hits"),
         ("extra", "extra"),
+        ("slow", "next cast late"),
         ("tempo", "ahead / behind"),
-        ("err", "missed cast or hits"),
-        ("xtra", "extra"),
     ] {
         if k == "tempo" {
             let (a, b) = ([fx, fy + 2.0], [fx + 46.0, fy + 12.0]);
@@ -793,10 +894,9 @@ fn draw_sec(ui: &Ui, dl: &DrawListMut, a: [f32; 2], b: [f32; 2], i: usize, j: us
     dl.add_rect(a, b, tempo(s.tempo)).filled(true).rounding(4.0).build();
     let (ia, ib) = ([a[0] + 1.0, a[1] + 1.0], [b[0] - 1.0, b[1] - 1.0]);
     match s.border {
-        Border::Err => dl.add_rect(ia, ib, BAD).rounding(4.0).thickness(2.0).build(),
-        Border::Extra => dl.add_rect(ia, ib, WARN).rounding(4.0).thickness(2.0).build(),
+        // a missed or extra cast is marked on its icon now; a skipped section keeps its edge
         Border::Skip => dashed_rect(dl, ia, ib, BAD, 2.0),
-        Border::None => {}
+        Border::Err | Border::Extra | Border::None => {}
     }
     if hovered {
         dl.add_rect(a, b, ACCENT).rounding(4.0).build();
@@ -835,7 +935,7 @@ fn draw_sec(ui: &Ui, dl: &DrawListMut, a: [f32; 2], b: [f32; 2], i: usize, j: us
         }
         for (k, (ci, c)) in pr.iter().take(show).enumerate() {
             let p = [a[0] + 7.0 + k as f32 * (size + 3.0), y];
-            icon(ui, dl, p, size, c.id, &c.name, icons, c.kind == "ghost");
+            icon(ui, dl, p, size, c.id, &c.name, icons, false);
             marks(ui, dl, p, size, c);
             if ui.is_mouse_hovering_rect(p, [p[0] + size, p[1] + size]) {
                 dl.add_rect([p[0] - 1.0, p[1] - 1.0], [p[0] + size + 1.0, p[1] + size + 1.0], INK).rounding(3.0).build();

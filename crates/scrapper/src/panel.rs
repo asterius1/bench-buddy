@@ -105,7 +105,7 @@ fn in_fervor(c: &Value, fervor: &[(f64, f64)]) -> bool {
     f(c, "t").is_some_and(|t| fervor.iter().any(|&(a, b)| a <= t && t < b))
 }
 
-fn flags(c: &Value, fervor: &[(f64, f64)]) -> Vec<String> {
+fn flags(c: &Value) -> Vec<String> {
     let k = kind(c);
     let mut f_: Vec<String> = if ["ghost", "extra", "moved", "movedfrom"].contains(&k) { vec![k.into()] } else { vec![] };
     for x in c.get("flags").and_then(Value::as_array).into_iter().flatten() {
@@ -113,20 +113,22 @@ fn flags(c: &Value, fervor: &[(f64, f64)]) -> Vec<String> {
             f_.push(x.into());
         }
     }
+    // a skill cut before it landed anything (a Galvanic Bomb never placed) was cancelled, not short
+    if f_.iter().any(|x| x == "few") && f(c, "landed") == Some(0.0) {
+        f_.retain(|x| x != "few");
+        f_.push("cancel".into());
+    }
     if f(c, "excess").is_some_and(|e| e > LATE_OK) {
         f_.push("cdlate".into());
     }
     if s(c, "pre") == "hit" {
         f_.push("inferred".into());
     }
-    if in_fervor(c, fervor) {
-        f_.push("fervor".into());
-    }
     f_
 }
 
 fn problem(f_: &[String]) -> bool {
-    f_.iter().any(|x| ["ghost", "extra", "moved", "slow", "few", "cdlate"].contains(&x.as_str()))
+    f_.iter().any(|x| ["ghost", "extra", "moved", "slow", "few", "cancel", "cdlate"].contains(&x.as_str()))
 }
 
 fn wi(c: &Value, k: &str) -> usize {
@@ -193,7 +195,8 @@ fn card(c: &Value, fervor: &[(f64, f64)]) -> Vec<Value> {
 }
 
 fn icon(c: &Value, fervor: &[(f64, f64)]) -> Value {
-    json!({"id": c["id"], "name": c["name"], "f": flags(c, fervor), "card": card(c, fervor)})
+    let hits = f(c, "landed").map(|l| format!("{}/{}", l as i64, f(c, "expect").unwrap_or(0.0) as i64));
+    json!({"id": c["id"], "name": c["name"], "f": flags(c), "lost": c["lost"], "hits": hits, "card": card(c, fervor)})
 }
 
 /// All casts of a cell compressed like grid.html: Electro-whirl + Shrapnel one token, autos one.

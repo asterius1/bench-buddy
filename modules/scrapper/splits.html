@@ -47,21 +47,12 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
 .sec.core { flex: 0 0 82px; }
 .sec.fill, .sec.burst, .sec.pre { flex: 1; }
 .sec:hover { outline: 1px solid var(--accent); }
-.sec.err { border-color: var(--bad); }
-.sec.xtra { border-color: var(--warn); }
 .sec .top { display: flex; justify-content: space-between; gap: 4px; font-size: 11px; line-height: 12px; color: var(--ink2); white-space: nowrap; }
 .sec .top b { font-variant-numeric: tabular-nums; font-weight: 600; color: var(--ink); }
 .ics { --s: 20px; display: flex; gap: 2px; height: 21px; align-items: center; overflow: hidden; }
 .ic { position: relative; width: var(--s); height: var(--s); flex: none; border-radius: 3px; background: #000; }
 .ic img, .ic .tx { width: var(--s); height: var(--s); border-radius: 3px; display: block; }
 .ic .tx { background: #333; color: var(--ink2); font-size: 8px; display: flex; align-items: center; justify-content: center; }
-.ic.ghost img, .ic.ghost .tx { opacity: .35; filter: grayscale(1); }
-.ic.ghost::after { content: ""; position: absolute; inset: -1px; border: 1.5px dashed var(--bad); border-radius: 4px; }
-.ic.extra::after { content: "+"; position: absolute; right: -3px; top: -5px; font-size: 11px; font-weight: 700; color: var(--ink); text-shadow: 0 0 2px #000, 0 0 2px #000; }
-.ic.slow { box-shadow: 0 3px 0 var(--warn); }
-.ic.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--warn); border: 1px solid #000; z-index: 1; }
-.ic.fervor { box-shadow: 0 -3px 0 -1px #d0473a; }
-.ic.slow.fervor { box-shadow: 0 3px 0 var(--warn), 0 -3px 0 -1px #d0473a; }
 .ic:hover { outline: 1px solid var(--ink); }
 .num { text-align: right; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; justify-content: center; padding-right: 4px; cursor: default; }
 .num b { font-size: 14px; font-weight: 600; }
@@ -69,12 +60,7 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
 .g { color: var(--ok); } .r { color: var(--bad); } .y { color: var(--warn); } .m { color: var(--muted); }
 .foot { display: flex; gap: 12px; flex-wrap: wrap; font-size: 11px; color: var(--muted); padding-top: 7px; border-top: 1px solid var(--border); align-items: center; }
 .foot .k { display: flex; align-items: center; gap: 5px; }
-.key { width: 14px; height: 14px; border-radius: 3px; background: #555; position: relative; }
-.key.ghost { background: transparent; border: 1.5px dashed var(--bad); }
-.key.slow { box-shadow: 0 3px 0 var(--warn); }
-.key.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 6px; height: 6px; border-radius: 50%; background: var(--warn); }
-.key.extra::after { content: "+"; position: absolute; right: -3px; top: -6px; font-weight: 700; color: var(--ink); font-size: 11px; }
-.key.fervor { box-shadow: 0 -3px 0 -1px #d0473a; }
+.key { --s: 14px; width: 14px; height: 14px; border-radius: 3px; background: #555; position: relative; }
 .tempo { width: 46px; height: 10px; border-radius: 2px; background: linear-gradient(90deg, rgb(24,120,58), #3a3c40, rgb(168,32,28)); }
 .tip { position: absolute; left: 672px; width: 460px; background: var(--tip); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; display: none; z-index: 10; font-size: 12px; }
 .tip h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
@@ -91,11 +77,9 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
 .pv { display: flex; gap: 2px; margin: 2px 0 6px; flex-wrap: wrap; }
 .pv .col { width: 26px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .pv .col .b, .pv .col .yv { width: 24px; height: 24px; border-radius: 3px; position: relative; }
+.pv .col .yv { --s: 24px; }
 .pv .col img, .pv .col .tx { width: 24px; height: 24px; border-radius: 3px; display: block; }
 .pv .col .b { opacity: .7; }
-.pv .col .yv.ghost { outline: 1.5px dashed var(--bad); outline-offset: -2px; }
-.pv .col .yv.extra { box-shadow: 0 0 0 1.5px var(--warn); }
-.pv .col .yv.slow { box-shadow: 0 0 0 2px var(--warn); }
 .pv .col .d { font-size: 9px; font-variant-numeric: tabular-nums; height: 11px; line-height: 11px; }
 .pv .lab { width: 34px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: var(--muted); }
 .pv .lab span { height: 24px; display: flex; align-items: center; }
@@ -103,6 +87,16 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
 .tabs { display: flex; gap: 4px; margin-bottom: 10px; font-size: 13px; }
 .tabs a { color: var(--ink2); text-decoration: none; padding: 3px 10px; border-radius: 12px; border: 1px solid var(--border); }
 .tabs a.on { color: var(--accent); border-color: var(--accent); }
+/* skill marks: a line inside the icon's own black frame (15 of 128 px a side), a red ✕ or slash,
+   a label in a dark strip along the bottom, and a grey wash over a slow cast */
+.mk { position: absolute; inset: 0; pointer-events: none; z-index: 1; --fr: calc(var(--s) * .117); }
+.mk .ln { position: absolute; inset: calc(var(--s) * .0257); border: max(1.5px, calc(var(--s) * .0655)) solid var(--mc); }
+.mk .ln.dash { border-style: dashed; }
+.mk .wash { position: absolute; inset: var(--fr); background: rgba(40,40,38,var(--wa)); }
+.mk svg { position: absolute; left: 0; top: 0; width: var(--s); height: var(--s); }
+.mk svg line { stroke-linecap: butt; }
+.mk .lb { position: absolute; left: var(--fr); right: var(--fr); bottom: var(--fr); background: rgba(0,0,0,.82); color: var(--lc); font: 600 clamp(8px, calc(var(--s) * .3), 13px)/1 system-ui, sans-serif; height: calc(clamp(8px, calc(var(--s) * .3), 13px) + 2px); display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.mk .dot { position: absolute; inset: calc(var(--s) * .05); border: 1px dotted var(--ink2); }
 </style>
 </head>
 <body>
@@ -112,11 +106,12 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
   <div class="cols"><div>Mini</div><div>Electro-whirl + Shrapnel · filler · bomb burst</div><div>Mini</div><div>Behind</div></div>
   <div class="splits" id="splits"><p class="empty">Waiting for a scrapper golem log…</p></div>
   <div class="foot">
-    <span class="k"><span class="key slow"></span>next cast late</span>
-    <span class="k"><span class="key cdlate"></span>20 s skill late</span>
-    <span class="k"><span class="key ghost"></span>missed</span>
-    <span class="k"><span class="key extra"></span>extra</span>
-    <span class="k"><span class="key fervor"></span>under Fervor</span>
+    <span class="k"><span class="key" data-k="ghost"></span>missed</span>
+    <span class="k"><span class="key" data-k="cancel"></span>cancelled</span>
+    <span class="k"><span class="key" data-k="few"></span>missed hits</span>
+    <span class="k"><span class="key" data-k="extra"></span>extra</span>
+    <span class="k"><span class="key" data-k="slow"></span>next cast late</span>
+    <span class="k"><span class="key" data-k="cd"></span>20 s skill late</span>
     <span class="k"><span class="tempo"></span>ahead / behind</span>
   </div>
 </div>
@@ -148,9 +143,41 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
     const k = [c.kind === "ghost" ? "ghost" : "", c.kind === "extra" ? "extra" : ""];
     (c.flags || []).forEach(f => k.push(f));
     if (TW.has(String(c.id)) && c.late != null && c.late > LATE_OK) k.push("cdlate");
-    if (c.t != null && fervorOn(c)) k.push("fervor");
     return k.join(" ");
   }
+  // ---- skill marks, the same as the in-game panel: rotation mistakes get a vivid line in the icon's
+  // black frame, a slow cast only greys out and shows its delay, more grey the smaller the delay ----
+  const MK = { bad: "rgb(255,43,43)", warn: "rgb(255,179,0)", order: "rgb(61,155,255)", slow: ["rgb(185,182,166)", "rgb(255,204,0)", "rgb(255,115,0)"] };
+  function slowMark(m, lost) {
+    if (m.edge || m.label) return;
+    const l = Math.max(0, lost || 0), lv = l >= 400 ? 2 : l >= 150 ? 1 : 0;
+    m.label = "+" + (l / 1000).toFixed(2).replace(/^0/, ""); m.lc = MK.slow[lv]; m.wash = [0.6, 0.35, 0.1][lv];
+  }
+  function mkHtml(m) {
+    if (!m) return "";
+    const ln = (a, b, c, d) => `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#000" stroke-width="17"/><line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="${MK.bad}" stroke-width="9"/>`;
+    let h = "";
+    if (m.wash) h += `<i class="wash" style="--wa:${m.wash}"></i>`;
+    if (m.edge) h += `<i class="ln${m.dashed ? " dash" : ""}" style="--mc:${m.edge}"></i>`;
+    else if (m.dotted) h += `<i class="dot"></i>`;
+    if (m.cross) h += `<svg viewBox="0 0 100 100">${ln(26, 26, 74, 74)}${ln(26, 74, 74, 26)}</svg>`;
+    if (m.slash) h += `<svg viewBox="0 0 100 100">${ln(18.8, 81.2, 81.2, 18.8)}</svg>`;
+    if (m.label) h += `<i class="lb" style="--lc:${m.lc}">${esc(m.label)}</i>`;
+    return h ? `<span class="mk">${h}</span>` : "";
+  }
+  function mark(c) {
+    const fl = c.flags || [], m = {};
+    if (c.kind === "ghost") { m.edge = MK.bad; m.dashed = true; m.cross = true; }
+    else if (fl.includes("few") && c.landed === 0) { m.edge = MK.bad; m.slash = true; }
+    else if (fl.includes("few")) { m.edge = MK.bad; m.label = `${c.landed}/${c.expect}`; m.lc = MK.bad; }
+    else if (c.kind === "extra") { m.edge = MK.warn; m.label = "+1"; m.lc = MK.warn; }
+    if (!m.label && TW.has(String(c.id)) && c.late != null && c.late > LATE_OK) { m.label = "CD"; m.lc = MK.slow[1]; }
+    if (fl.includes("slow") && (c.lost || 0) > 50) slowMark(m, c.lost);
+    return m;
+  }
+  const LEGEND = { ghost: { edge: MK.bad, dashed: true, cross: true }, cancel: { edge: MK.bad, slash: true }, few: { edge: MK.bad },
+    extra: { edge: MK.warn }, slow: { wash: 0.35 }, cd: { label: "CD", lc: MK.slow[1] } };
+  document.querySelectorAll(".foot [data-k]").forEach(e => { e.innerHTML = mkHtml(LEGEND[e.dataset.k]); });
 
   function render() {
     TW.clear(); (P.twenty || []).forEach(x => TW.add(x));
@@ -198,10 +225,9 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
     Object.entries(sections).forEach(([sk, s]) => {
       const d = s.time != null && s.refTime != null ? s.time - s.refTime : null;
       const chips = s.chips.filter(c => c.kind !== "cut");
-      const err = chips.some(c => c.kind === "ghost"), xtra = chips.some(c => c.kind === "extra");
-      secs += `<div class="sec ${sk} ${err ? "err" : xtra ? "xtra" : ""}" style="${tempoBg(d)}" data-tip="sec" data-k="${key}" data-s="${sk}">
+      secs += `<div class="sec ${sk}" style="${tempoBg(d)}" data-tip="sec" data-k="${key}" data-s="${sk}">
         <div class="top"><span>${SECN[sk]}</span><b>${s.time != null ? (s.time / 1000).toFixed(2) : ""}</b><span>${d != null ? sgn(d) : ""}</span></div>
-        <div class="ics">${chips.map((c, i) => `<span class="ic ${chipCls(c)}" data-tip="skill" data-k="${key}" data-s="${sk}" data-c="${s.chips.indexOf(c)}">${icon(c.id, c.name)}</span>`).join("")}</div></div>`;
+        <div class="ics">${chips.map((c, i) => `<span class="ic ${chipCls(c)}" data-tip="skill" data-k="${key}" data-s="${sk}" data-c="${s.chips.indexOf(c)}">${icon(c.id, c.name)}${mkHtml(mark(c))}</span>`).join("")}</div></div>`;
     });
     const d = m && m.len != null && m.refLen != null ? m.len - m.refLen : null;
     return `<div class="split"><div class="lbl"><b>${label}</b><span>${sub}</span></div><div class="secs">${secs}</div>
@@ -233,7 +259,7 @@ body { background: var(--page); color: var(--ink); font: 13px/1.25 system-ui, sa
     const cols = s.chips.filter(c => c.kind !== "cut").map(c => {
       const b = c.kind === "ghost" ? icon(c.id, c.name) : c.ref ? icon(c.ref.id, c.ref.name) : "";
       const y = c.kind === "ghost" ? "" : icon(c.id, c.name);
-      return `<div class="col"><div class="b">${b}</div><div class="yv ${chipCls(c)}">${y}</div><div class="d ${cls(c.lost)}">${c.lost != null ? sgn(c.lost) : c.kind === "extra" ? "extra" : c.kind === "ghost" ? "miss" : ""}</div></div>`;
+      return `<div class="col"><div class="b">${b}</div><div class="yv ${chipCls(c)}">${y}${mkHtml(mark(c))}</div><div class="d ${cls(c.lost)}">${c.lost != null ? sgn(c.lost) : c.kind === "extra" ? "extra" : c.kind === "ghost" ? "miss" : ""}</div></div>`;
     }).join("");
     const d = s.time != null && s.refTime != null ? s.time - s.refTime : null;
     return `<h3>${SECL[sk]}</h3><div class="sub">${sec(s.time)} · bench ${sec(s.refTime)} · <span class="${cls(d)}">${d != null ? sgn(d) : ""}</span>${sk === "fill" ? " · matched as a set" : ""}</div>

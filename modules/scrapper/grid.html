@@ -39,8 +39,6 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
 .rowh span { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .cell { background: #3a3c40; border-radius: 5px; padding: 3px 5px 4px; min-width: 0; cursor: default; border: 2px solid transparent; display: flex; flex-direction: column; overflow: hidden; }
 .cell:hover { outline: 1px solid var(--accent); }
-.cell.err { border-color: var(--bad); }
-.cell.xtra { border-color: var(--warn); }
 .cell.none { background: transparent; cursor: default; }
 .cell.none:hover { outline: 0; }
 .cell .tm { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: var(--ink2); font-variant-numeric: tabular-nums; }
@@ -53,24 +51,11 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
 .tok .im { width: var(--s); height: var(--s); background: #000; position: relative; }
 .tok .im img, .tok .im .tx { width: var(--s); height: var(--s); display: block; }
 .tok .im .tx { background: #333; color: var(--ink2); font-size: 8px; display: flex; align-items: center; justify-content: center; }
-.tok .kit { height: 3px; }
 .tok.ew .pair { display: flex; }
+.tok.ew .pair, .tok.aa .im { position: relative; }
 .tok.aa .im { background: #2a2b2e; display: flex; align-items: center; gap: 3px; overflow: hidden; box-shadow: inset 1px 0 #000; }
 .tok.aa .im img { width: calc(var(--s) * .66); height: calc(var(--s) * .66); margin-left: 2px; opacity: .8; flex: none; }
 .tok.aa .im b { font-size: 11px; color: var(--ink2); }
-.tok.ghost .im img, .tok.ghost .im .tx { opacity: .3; filter: grayscale(1); }
-.tok.ghost .im::after { content: ""; position: absolute; inset: 0; border: 1.5px dashed var(--bad); }
-.tok.extra .im::after { content: "+"; position: absolute; right: -2px; top: -6px; font-size: 13px; font-weight: 700; color: var(--ink); text-shadow: 0 0 2px #000, 0 0 2px #000; }
-.tok.moved .im::after { content: "⇄"; position: absolute; right: -3px; top: -7px; font-size: 11px; color: var(--accent); text-shadow: 0 0 2px #000, 0 0 2px #000; }
-.tok.movedfrom { opacity: .35; }
-.pv .y2.moved { box-shadow: 0 0 0 1.5px var(--accent); }
-.tok.few .im::before { content: ""; position: absolute; inset: 0; box-shadow: inset 0 0 0 2px var(--bad); z-index: 1; }
-.pv .y2.few { box-shadow: 0 0 0 2px var(--bad); }
-.tok.slow .kit { background: var(--warn) !important; height: 4px; }
-.tok.cdlate::before { content: ""; position: absolute; left: -2px; top: -2px; width: 8px; height: 8px; border-radius: 50%; background: var(--warn); border: 1px solid #000; z-index: 1; }
-.tok.inferred .im { opacity: .8; }
-.tok.inferred .im::before { content: ""; position: absolute; inset: 0; border: 1px dotted var(--ink2); z-index: 1; }
-.tok.fervor .im { box-shadow: 0 -3px 0 -1px #d0473a; }
 .g { color: var(--ok); } .r { color: var(--bad); } .y { color: var(--warn); } .m { color: var(--muted); }
 .foot { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--muted); margin-top: 10px; align-items: center; }
 .foot .k { display: flex; align-items: center; gap: 5px; }
@@ -90,11 +75,9 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
 .pv { display: flex; gap: 2px; margin: 2px 0 8px; flex-wrap: wrap; }
 .pv .col { width: 42px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .pv .b, .pv .y2 { width: 28px; height: 28px; position: relative; }
+.pv .y2 { --s: 28px; }
 .pv .b img, .pv .y2 img, .pv .b .tx, .pv .y2 .tx { width: 28px; height: 28px; display: block; }
 .pv .b { opacity: .7; }
-.pv .y2.ghost { outline: 1.5px dashed var(--bad); outline-offset: -2px; }
-.pv .y2.extra { box-shadow: 0 0 0 1.5px var(--warn); }
-.pv .y2.slow { box-shadow: 0 0 0 2px var(--warn); }
 .pv .d { font-size: 9px; font-variant-numeric: tabular-nums; height: 11px; }
 .pv .nm { font-size: 9px; color: var(--muted); width: 42px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .pv .lab { width: 34px; display: flex; flex-direction: column; gap: 2px; font-size: 10px; color: var(--muted); }
@@ -105,12 +88,22 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
 .ax .bar img, .ax .bar .tx { width: 20px; height: 20px; flex: none; }
 .ax .bar.me { background: #3f5f86; }
 .ax .bar.slow { background: #8a5a12; }
-.ax .bar.extra { box-shadow: inset 0 0 0 1.5px var(--warn); }
-.ax .bar.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px var(--bad); }
+.ax .bar.extra { box-shadow: inset 0 0 0 1.5px rgb(255,179,0); }
+.ax .bar.ghost { background: transparent; box-shadow: inset 0 0 0 1.5px rgb(255,43,43); }
 .ax .bar.inferred { background: repeating-linear-gradient(45deg, #3f5f86 0 4px, #2c4260 4px 8px); }
 .ax .ticks { position: relative; height: 12px; margin-left: 40px; font-size: 9px; color: var(--muted); }
 .ax .ticks span { position: absolute; transform: translateX(-50%); }
 .empty { color: var(--muted); padding: 20px 0; }
+/* skill marks: a line inside the icon's own black frame (15 of 128 px a side), a red ✕ or slash,
+   a label in a dark strip along the bottom, and a grey wash over a slow cast */
+.mk { position: absolute; inset: 0; pointer-events: none; z-index: 1; --fr: calc(var(--s) * .117); }
+.mk .ln { position: absolute; inset: calc(var(--s) * .0257); border: max(1.5px, calc(var(--s) * .0655)) solid var(--mc); }
+.mk .ln.dash { border-style: dashed; }
+.mk .wash { position: absolute; inset: var(--fr); background: rgba(40,40,38,var(--wa)); }
+.mk svg { position: absolute; left: 0; top: 0; width: var(--s); height: var(--s); }
+.mk svg line { stroke-linecap: butt; }
+.mk .lb { position: absolute; left: var(--fr); right: var(--fr); bottom: var(--fr); background: rgba(0,0,0,.82); color: var(--lc); font: 600 clamp(8px, calc(var(--s) * .3), 13px)/1 system-ui, sans-serif; height: calc(clamp(8px, calc(var(--s) * .3), 13px) + 2px); display: flex; align-items: center; justify-content: center; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; }
+.mk .dot { position: absolute; inset: calc(var(--s) * .05); border: 1px dotted var(--ink2); }
 </style>
 </head>
 <body>
@@ -119,14 +112,15 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
 <div class="head" id="head"></div>
 <div class="ctl" id="ctl"></div>
 <div class="grid" id="grid"><p class="empty">Waiting for a scrapper golem log…</p></div>
-<div class="foot">
-  <span class="k"><span class="key" style="outline:1.5px dashed var(--bad);outline-offset:-2px;background:transparent"></span>bench casts it, you didn't</span>
-  <span class="k"><span class="key"></span><b style="margin-left:-8px">+</b> extra</span>
-  <span class="k"><span class="key"></span><b style="margin-left:-8px;color:var(--accent)">⇄</b> in another whirl than the bench</span>
-  <span class="k"><span class="key" style="box-shadow:inset 0 0 0 2px var(--bad)"></span>missed hits</span>
-  <span class="k"><span class="key" style="box-shadow:0 4px 0 var(--warn)"></span>next cast late</span>
-  <span class="k"><span class="key" style="border-radius:50%;width:9px;height:9px;background:var(--warn)"></span>20 s skill later than the rest of its cycle</span>
-  <span class="k"><span class="key" style="outline:1px dotted var(--ink2);outline-offset:-1px"></span>before the fight, from its hits</span>
+<div class="foot" id="foot">
+  <span class="k" data-k="ghost">missed</span>
+  <span class="k" data-k="cancel">cancelled</span>
+  <span class="k" data-k="few">missed hits</span>
+  <span class="k" data-k="extra">extra</span>
+  <span class="k" data-k="order">filler order</span>
+  <span class="k" data-k="slow">next cast late</span>
+  <span class="k" data-k="cd">20 s skill later than the rest of its cycle</span>
+  <span class="k" data-k="inferred">before the fight, from its hits</span>
   <span class="k"><span class="tempo"></span>ahead / behind the bench</span>
 </div>
 </div>
@@ -140,16 +134,12 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
   const sec = ms => ms == null ? "—" : (ms / 1000).toFixed(2) + " s";
   const clk = ms => { const neg = ms < 0, s = Math.abs(ms) / 1000; return (neg ? "−" : "") + Math.floor(s / 60) + ":" + (s % 60).toFixed(1).padStart(4, "0"); };
   const cls = ms => ms == null ? "m" : ms > 50 ? "r" : ms < -50 ? "g" : "m";
-  const KIT = { 5807: "grenade", 5809: "grenade", 5806: "grenade", 5810: "grenade", 5823: "bomb", 5822: "bomb", 5813: "bomb", 76530: "bomb",
-    30885: "mortar", 30307: "mortar", 56920: "gyro", 30357: "gyro", 31248: "gyro", 6161: "mine", 6164: "mine",
-    30088: "hammer", 30713: "hammer", 30501: "hammer", 29785: "hammer", 30489: "hammer" };
   const HAMMER = new Set([30501, 29785, 30489]);
   const SECL = { pre: "Opener", core: "Electro-whirl + Shrapnel", fill: "Filler", burst: "Bomb burst" };
   const LATE_OK = 400;
   let ICONS = {}, P = null, HIST = [], current = null, follow = true, ALL = false, TW = new Set();
   try { ALL = localStorage.getItem("scr.all") === "1"; } catch (e) {}
   const icon = (id, name) => ICONS[id] ? `<img src="${esc(ICONS[id])}" alt="">` : `<span class="tx">${esc(String(name || id).slice(0, 5))}</span>`;
-  const kit = id => `<div class="kit" style="background: var(--${KIT[id] || "hammer"})"></div>`;
   function tempoBg(d) {
     if (d == null || Math.abs(d) <= 50) return "";
     const k = 0.35 + 0.65 * Math.min(1, (Math.abs(d) - 50) / 350);
@@ -168,9 +158,46 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
     (c.flags || []).forEach(f => k.push(f));
     if (cdLate(c)) k.push("cdlate");
     if (c.pre === "hit") k.push("inferred");
-    if (fervorOn(c.t)) k.push("fervor");
     return k.join(" ");
   }
+  // ---- skill marks, the same as the in-game panel: rotation mistakes get a vivid line in the icon's
+  // black frame, a slow cast only greys out and shows its delay, more grey the smaller the delay ----
+  const MK = { bad: "rgb(255,43,43)", warn: "rgb(255,179,0)", order: "rgb(61,155,255)", slow: ["rgb(185,182,166)", "rgb(255,204,0)", "rgb(255,115,0)"] };
+  function slowMark(m, lost) {
+    if (m.edge || m.label) return;
+    const l = Math.max(0, lost || 0), lv = l >= 400 ? 2 : l >= 150 ? 1 : 0;
+    m.label = "+" + (l / 1000).toFixed(2).replace(/^0/, ""); m.lc = MK.slow[lv]; m.wash = [0.6, 0.35, 0.1][lv];
+  }
+  function mkHtml(m) {
+    if (!m) return "";
+    const ln = (a, b, c, d) => `<line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="#000" stroke-width="17"/><line x1="${a}" y1="${b}" x2="${c}" y2="${d}" stroke="${MK.bad}" stroke-width="9"/>`;
+    let h = "";
+    if (m.wash) h += `<i class="wash" style="--wa:${m.wash}"></i>`;
+    if (m.edge) h += `<i class="ln${m.dashed ? " dash" : ""}" style="--mc:${m.edge}"></i>`;
+    else if (m.dotted) h += `<i class="dot"></i>`;
+    if (m.cross) h += `<svg viewBox="0 0 100 100">${ln(26, 26, 74, 74)}${ln(26, 74, 74, 26)}</svg>`;
+    if (m.slash) h += `<svg viewBox="0 0 100 100">${ln(18.8, 81.2, 81.2, 18.8)}</svg>`;
+    if (m.label) h += `<i class="lb" style="--lc:${m.lc}">${esc(m.label)}</i>`;
+    return h ? `<span class="mk">${h}</span>` : "";
+  }
+  function mark(c) {
+    if (!c) return null;
+    const fl = c.flags || [], m = {};
+    if (c.kind === "ghost") { m.edge = MK.bad; m.dashed = true; m.cross = true; }
+    else if (fl.includes("few") && c.landed === 0) { m.edge = MK.bad; m.slash = true; }
+    else if (fl.includes("few")) { m.edge = MK.bad; m.label = `${c.landed}/${c.expect}`; m.lc = MK.bad; }
+    else if (c.kind === "extra") { m.edge = MK.warn; m.label = "+1"; m.lc = MK.warn; }
+    if (!m.edge && c.kind === "moved") m.edge = MK.order;
+    if (!m.edge && c.kind === "movedfrom") { m.edge = MK.order; m.dashed = true; }
+    if (!m.label && cdLate(c)) { m.label = "CD"; m.lc = MK.slow[1]; }
+    if (fl.includes("slow") && (c.lost || 0) > 50) slowMark(m, c.lost);
+    if (c.pre === "hit" && !m.edge) m.dotted = true;
+    return m;
+  }
+  const LEGEND = {
+    ghost: { edge: MK.bad, dashed: true, cross: true }, cancel: { edge: MK.bad, slash: true }, few: { edge: MK.bad },
+    extra: { edge: MK.warn }, order: { edge: MK.order }, slow: { wash: 0.35 }, cd: { label: "CD", lc: MK.slow[1] }, inferred: { dotted: true } };
+  document.querySelectorAll("#foot [data-k]").forEach(e => e.insertAdjacentHTML("afterbegin", `<span class="key" style="--s:14px;background:#555">${mkHtml(LEGEND[e.dataset.k])}</span>`));
   // all casts of a cell, compressed: Electro-whirl + Shrapnel one block, hammer autos one block
   function compress(chips) {
     const out = [];
@@ -196,13 +223,13 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
   function tokInner(x) {
     if (x.ew) {
       const bad = [x.c, x.shrap].filter(Boolean).some(isProblem);
-      return `<div class="tok ew ${bad ? chipCls([x.c, x.shrap].find(c => c && isProblem(c))) : ""}"><div class="pair"><div class="im">${icon(30088)}</div><div class="im">${icon(5807)}</div></div><div class="kit" style="background: linear-gradient(90deg, var(--hammer) 50%, var(--grenade) 50%)"></div></div>`;
+      return `<div class="tok ew ${bad ? chipCls([x.c, x.shrap].find(c => c && isProblem(c))) : ""}"><div class="pair"><div class="im">${icon(30088)}</div><div class="im">${icon(5807)}</div>${bad ? mkHtml(mark([x.c, x.shrap].find(c => c && isProblem(c)))) : ""}</div></div>`;
     }
     if (x.aa) {
       const n = x.list.length, bad = x.list.find(isProblem);
-      return `<div class="tok aa ${bad ? chipCls(bad) : ""}" data-n="${n}"><div class="im" style="width:calc(var(--s) * ${Math.max(1.1, n * 0.36).toFixed(2)})">${icon(30501)}<b>${n}</b></div>${kit(30501)}</div>`;
+      return `<div class="tok aa ${bad ? chipCls(bad) : ""}" data-n="${n}"><div class="im" style="width:calc(var(--s) * ${Math.max(1.1, n * 0.36).toFixed(2)})">${icon(30501)}<b>${n}</b>${bad ? mkHtml(mark(bad)) : ""}</div></div>`;
     }
-    return `<div class="tok ${chipCls(x.c)}"><div class="im">${icon(x.c.id, x.c.name)}</div>${kit(x.c.id)}</div>`;
+    return `<div class="tok ${chipCls(x.c)}"><div class="im">${icon(x.c.id, x.c.name)}${mkHtml(mark(x.c))}</div></div>`;
   }
   function cellBody(chips) {
     if (ALL) return `<div class="toks">${compress(chips).map(tokHtml).join("")}</div>`;
@@ -261,16 +288,15 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
       for (let k = 0; k < 3; k++) {
         const m = r.minis[k];
         if (!m && k === 0 && r.pre) {
-          const chips = r.pre.chips, err = chips.some(c => c.kind === "ghost"), xt = chips.some(c => c.kind === "extra");
+          const chips = r.pre.chips;
           const ew = r.minis.find(Boolean), od = ew && ew.refStart != null ? ew.start - ew.refStart : null;
-          h += `<div class="cell ${err ? "err" : xt ? "xtra" : ""}" style="${tempoBg(od)}" data-r="${ri}" data-m="pre"><div class="tm"><span>opener</span><span><b>${ew ? (ew.start / 1000).toFixed(2) : ""}</b> ${sgn(od)}</span></div>${cellBody(chips)}</div>`;
+          h += `<div class="cell" style="${tempoBg(od)}" data-r="${ri}" data-m="pre"><div class="tm"><span>opener</span><span><b>${ew ? (ew.start / 1000).toFixed(2) : ""}</b> ${sgn(od)}</span></div>${cellBody(chips)}</div>`;
           continue;
         }
         if (!m) { h += `<div class="cell none"></div>`; continue; }
         const chips = Object.values(m.sections).flatMap(s => s.chips).filter(c => m.len != null || c.kind !== "ghost");
         const md = m.len != null && m.refLen != null ? m.len - m.refLen : null;
-        const err = chips.some(c => c.kind === "ghost"), xt = chips.some(c => c.kind === "extra");
-        h += `<div class="cell ${err ? "err" : xt ? "xtra" : ""}" style="${tempoBg(md)}" data-r="${ri}" data-m="${k}">
+        h += `<div class="cell" style="${tempoBg(md)}" data-r="${ri}" data-m="${k}">
           <div class="tm"><span>${clk(m.start)}</span><span><b>${m.len != null ? (m.len / 1000).toFixed(2) : "…"}</b> ${sgn(md)}</span></div>${cellBody(chips)}</div>`;
       }
       h += `<div class="cyc" style="${tempoBg(d)}" data-r="${ri}" data-m="cyc"><b>${r.len != null ? (r.len / 1000).toFixed(2) : "…"}</b><span class="${cls(d)}">${sgn(d)}</span>${d != null ? `<span class="bh ${cls(behind)}" title="behind the bench after this cycle">${sgn(behind)}</span>` : ""}</div>`;
@@ -296,8 +322,8 @@ body { background: var(--page); color: var(--ink); font: 14px/1.3 system-ui, san
       const b = c.kind === "ghost" || c.kind === "movedfrom" ? icon(c.id, c.name) : c.ref ? icon(c.ref.id, c.ref.name) : "";
       const y = c.kind === "ghost" || c.kind === "movedfrom" ? "" : icon(c.id, c.name);
       const W = ["burst", "nade", "other"];
-      const d = (c.flags || []).includes("few") ? `${c.landed}/${c.expect} hits` : c.kind === "ghost" ? "miss" : c.kind === "movedfrom" ? `to ${W[c.movedTo]}` : c.kind === "moved" ? `from ${W[c.movedFrom]}` : c.kind === "extra" ? "extra" : c.lost != null ? sgn(c.lost) : "";
-      return `<div class="col"><div class="b">${b}</div><div class="y2 ${chipCls(c)}">${y}</div><div class="d ${c.lost != null ? cls(c.lost) : c.kind === "ghost" ? "r" : "y"}">${d}</div><div class="nm" title="${esc(c.name)}">${esc(c.name)}</div></div>`;
+      const d = (c.flags || []).includes("few") ? (c.landed === 0 ? "cancelled" : `${c.landed}/${c.expect} hits`) : c.kind === "ghost" ? "miss" : c.kind === "movedfrom" ? `to ${W[c.movedTo]}` : c.kind === "moved" ? `from ${W[c.movedFrom]}` : c.kind === "extra" ? "extra" : c.lost != null ? sgn(c.lost) : "";
+      return `<div class="col"><div class="b">${b}</div><div class="y2 ${chipCls(c)}">${y}${mkHtml(mark(c))}</div><div class="d ${c.lost != null ? cls(c.lost) : c.kind === "ghost" ? "r" : "y"}">${d}</div><div class="nm" title="${esc(c.name)}">${esc(c.name)}</div></div>`;
     }).join("")}</div>`;
   }
   function axis(chips, myStart, refStart) {

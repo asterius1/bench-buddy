@@ -1,0 +1,16 @@
+[package]
+name = "bench_judge"
+description = "Bench Buddy's judging in Rust: reads arcdps logs and compares a pull with the bench (the Scrapper so far)"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+miniz_oxide = "0.8"
+
+[[bin]]
+name = "bbjudge"
+path = "src/bin/bbjudge.rs"
+
+[profile.release]
+opt-level = 3

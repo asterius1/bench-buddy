@@ -29,6 +29,8 @@ programmers: explain what you changed in plain words, and show them the page.
 - **`modules/berserker/`** and **`modules/scrapper/`** are the two full modules. They predate the
   simple contract below, so their routes are written out in `serve.py` (`/`, `/api/compare`,
   `/scrapper`, `/api/scrapper/...`). Read them for how far a module can go.
+- **`judge/`** is the judging ported to Rust, so far the Scrapper (see `judge/README.md`). It must give
+  the same JSON as the Python module: `python tools/judgeparity.py` checks every pull.
 - **`addon/`** is the Nexus addon in Rust. It only draws; every decision is made in Python. See
   `addon/README.md`.
 

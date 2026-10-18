@@ -1,0 +1,12 @@
+[package]
+name = "checker"
+description = "Bench Buddy's checker: the pages on 127.0.0.1:8771, and the judging from the command line"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { workspace = true }
+bb_core = { workspace = true }
+bb_scrapper = { workspace = true }
+bb_berserker = { workspace = true }
+bb_app = { workspace = true }

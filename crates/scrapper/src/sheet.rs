@@ -5,7 +5,7 @@ use std::collections::{BTreeSet, HashMap};
 use serde_json::{json, Value};
 
 use super::{cd, kit_of, Bench, Cast, EW, HAMMER, SHRAP};
-use crate::kit::{clk, num, sec};
+use bb_core::kit::{clk, num, sec};
 
 /// a skill in at least this share of full cycles' same mini loop is part of the usual loop
 const REGULAR: f64 = 0.75;
@@ -24,6 +24,7 @@ struct Mark {
     id: i64,
     name: &'static str,
     t: f64,
+    kit: &'static str,
 }
 
 #[derive(Clone)]
@@ -36,6 +37,7 @@ struct Token {
     dur: Option<f64>,
     shrap: Option<f64>,
     n: Option<i64>,
+    ids: Vec<i64>,
     late: Option<f64>,
     cd: Option<f64>,
     kit: &'static str,
@@ -49,7 +51,7 @@ fn tokens(casts: &[&Cast], instants: &[(i64, f64)]) -> Vec<Token> {
     let mut real: Vec<&Cast> = casts.iter().copied().filter(|c| !c.cut).collect();
     real.sort_by(|a, b| a.t.partial_cmp(&b.t).unwrap());
     let mut out: Vec<Token> = vec![];
-    let tok = |kind, id, name: String, t, end| Token { kind, id, name, t, end, dur: None, shrap: None, n: None, late: None,
+    let tok = |kind, id, name: String, t, end| Token { kind, id, name, t, end, dur: None, shrap: None, n: None, ids: vec![], late: None,
                                                     cd: None, kit: "", marks: vec![], usual: None };
     for c in real {
         if let Some(last) = out.last_mut() {
@@ -66,10 +68,12 @@ fn tokens(casts: &[&Cast], instants: &[(i64, f64)]) -> Vec<Token> {
                 Some(last) => {
                     *last.n.as_mut().unwrap() += 1;
                     last.end = c.t + c.dur;
+                    last.ids.push(c.id);
                 }
                 None => {
                     let mut t = tok("aa", 30501, "Hammer auto chain".into(), c.t, c.t + c.dur);
                     t.n = Some(1);
+                    t.ids = vec![c.id];
                     out.push(t);
                 }
             }
@@ -87,7 +91,7 @@ fn tokens(casts: &[&Cast], instants: &[(i64, f64)]) -> Vec<Token> {
     let mut inst = instants.to_vec();
     inst.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
     for (id, t) in inst {
-        let mark = Mark { id, name: shown_instant(id).unwrap(), t };
+        let mark = Mark { id, name: shown_instant(id).unwrap(), t, kit: kit_of(id).unwrap_or("") };
         let host = out.iter().position(|x| x.t <= t && t < x.end)
             .or_else(|| out.iter().position(|x| x.t >= t))
             .or_else(|| out.len().checked_sub(1));
@@ -101,6 +105,7 @@ fn tokens(casts: &[&Cast], instants: &[(i64, f64)]) -> Vec<Token> {
 struct SMini {
     start: f64,
     len: Option<f64>,
+    burst: bool,
     tokens: Vec<Token>,
     missing: Vec<i64>,
     /// indices of the filler tokens
@@ -157,11 +162,17 @@ fn tok_json(t: &Token) -> Value {
            "marks": t.marks.iter().map(|k| k.id).collect::<Vec<_>>(), "card": sheet_card(t)})
 }
 
-/// The bench rotation for the addon's cheat sheet view (panel.py's `sheet()`): the structure on
-/// top, then rows of three cells of just the filler.
-pub fn sheet(bench: &Bench) -> Value {
+struct Built {
+    rows: Vec<SRow>,
+    usual: Vec<Vec<i64>>,
+    structure: Vec<(&'static str, Vec<Token>)>,
+    full: usize,
+}
+
+/// The bench's cycles as rows of three mini loops of tokens, each skill marked usual or not against
+/// the same mini loop in the other full cycles (`bench_sheet()` in scrap.py).
+fn build(bench: &Bench) -> Built {
     let log = &bench.log;
-    let sm = &log["skillMap"];
     let inst: Vec<(i64, f64)> = log["players"][0]["rotation"].as_array().into_iter().flatten()
         .filter(|r| r["id"].as_i64().and_then(shown_instant).is_some())
         .flat_map(|r| {
@@ -178,7 +189,7 @@ pub fn sheet(bench: &Bench) -> Value {
             let end = m.start + m.len.filter(|&l| l != 0.0).unwrap_or(1e9);
             let cs: Vec<&Cast> = m.sections.iter().flat_map(|(_, v)| v.iter()).collect();
             let ins: Vec<(i64, f64)> = inst.iter().copied().filter(|&(_, t)| m.start <= t && t < end).collect();
-            SMini { start: m.start - cy.start, len: m.len, tokens: tokens(&cs, &ins), missing: vec![], filler: vec![] }
+            SMini { start: m.start - cy.start, len: m.len, burst: m.burst, tokens: tokens(&cs, &ins), missing: vec![], filler: vec![] }
         })).collect();
         let pre = if cy.pre.is_empty() { vec![] } else {
             let ins: Vec<(i64, f64)> = inst.iter().copied().filter(|&(_, t)| t < cy.start).collect();
@@ -252,8 +263,8 @@ pub fn sheet(bench: &Bench) -> Value {
     // the structure: the opener, then each mini loop's fixed casts from the first full cycle that has
     // it, with a "filler" slot where its floating skills go
     let slot = Token { kind: "slot", id: 0, name: "filler".into(), t: 0.0, end: 0.0, dur: None, shrap: None, n: None,
-                       late: None, cd: None, kit: "", marks: vec![], usual: Some(true) };
-    let mut structure = vec![json!({"name": "Opener", "tokens": out.first().map(|r| r.pre.iter().map(tok_json).collect::<Vec<_>>()).unwrap_or_default()})];
+                       ids: vec![], late: None, cd: None, kit: "", marks: vec![], usual: Some(true) };
+    let mut structure = vec![("Opener", out.first().map(|r| r.pre.clone()).unwrap_or_default())];
     for (i, name) in ["Bomb burst", "Nade filler", "Other filler"].iter().enumerate() {
         let m = full.iter().find_map(|&r| out[r].minis.get(i).and_then(|m| m.as_ref()));
         let mut fixed: Vec<&Token> = vec![];
@@ -268,11 +279,21 @@ pub fn sheet(bench: &Bench) -> Value {
             }
         }
         let at = at.unwrap_or(fixed.len());
-        let mut toks: Vec<&Token> = fixed[..at].to_vec();
-        toks.push(&slot);
-        toks.extend(&fixed[at..]);
-        structure.push(json!({"name": name, "tokens": toks.into_iter().map(tok_json).collect::<Vec<_>>()}));
+        let mut toks: Vec<Token> = fixed[..at].iter().map(|t| (*t).clone()).collect();
+        toks.push(slot.clone());
+        toks.extend(fixed[at..].iter().map(|t| (*t).clone()));
+        structure.push((*name, toks));
     }
+    Built { rows: out, usual: usual_list, structure, full: full.len() }
+}
+
+/// The bench rotation for the addon's cheat sheet view (panel.py's `sheet()`): the structure on
+/// top, then rows of three cells of just the filler.
+pub fn sheet(bench: &Bench) -> Value {
+    let sm = &bench.log["skillMap"];
+    let Built { rows: out, usual: usual_list, structure, .. } = build(bench);
+    let structure: Vec<Value> = structure.iter()
+        .map(|(n, ts)| json!({"name": n, "tokens": ts.iter().map(tok_json).collect::<Vec<_>>()})).collect();
     let rows_json: Vec<Value> = out.iter().map(|r| {
         let cells: Vec<Value> = (0..3).map(|k| match r.minis.get(k).and_then(|m| m.as_ref()) {
             None if k == 0 && !r.pre.is_empty() => json!({"label": "opener", "len": null, "tokens": [], "missing": []}),
@@ -285,4 +306,57 @@ pub fn sheet(bench: &Bench) -> Value {
     }).collect();
     json!({"kind": "sheet", "rows": rows_json, "structure": structure,
            "usual": usual_list.iter().map(|col| col.iter().copied().filter(|&u| shown_instant(u).is_none()).collect::<Vec<_>>()).collect::<Vec<_>>()})
+}
+
+fn raw_token(t: &Token) -> Value {
+    let mut o = serde_json::Map::new();
+    o.insert("kind".into(), t.kind.into());
+    o.insert("id".into(), t.id.into());
+    o.insert("name".into(), t.name.clone().into());
+    if t.kind != "slot" {
+        o.insert("t".into(), num(t.t));
+        if t.kind == "skill" {
+            o.insert("dur".into(), t.dur.map(num).into());
+        }
+        o.insert("end".into(), num(t.end));
+        match t.kind {
+            "ew" => {
+                if let Some(s) = t.shrap {
+                    o.insert("shrap".into(), num(s));
+                }
+            }
+            "aa" => {
+                o.insert("n".into(), t.n.into());
+                o.insert("ids".into(), json!(t.ids));
+            }
+            _ => {
+                o.insert("late".into(), t.late.map(num).into());
+                o.insert("cd".into(), t.cd.map(num).into());
+            }
+        }
+    }
+    o.insert("kit".into(), t.kit.into());
+    o.insert("marks".into(), t.marks.iter().map(|k| json!({"id": k.id, "name": k.name, "t": num(k.t), "kit": k.kit})).collect());
+    if let Some(u) = t.usual {
+        o.insert("usual".into(), u.into());
+    }
+    Value::Object(o)
+}
+
+/// The bench's cycles for the cheat sheet page (`/api/scrapper/bench`).
+pub fn bench_sheet(bench: &Bench) -> Value {
+    let sm = &bench.log["skillMap"];
+    let b = build(bench);
+    let item = |x: i64| json!({"id": x, "name": skill_name(sm, x), "kit": kit_of(x).unwrap_or("")});
+    let rows: Vec<Value> = b.rows.iter().map(|r| json!({
+        "n": r.n, "start": num(r.start), "len": r.len.map(num),
+        "minis": r.minis.iter().map(|m| m.as_ref().map(|m| json!({
+            "start": num(m.start), "len": m.len.map(num), "tokens": m.tokens.iter().map(|t| raw_token(t)).collect::<Vec<_>>(),
+            "burst": m.burst, "missing": m.missing.iter().map(|&x| item(x)).collect::<Vec<_>>(),
+            "filler": m.filler.iter().map(|&j| raw_token(&m.tokens[j])).collect::<Vec<_>>()})).unwrap_or(Value::Null)).collect::<Vec<_>>(),
+        "pre": r.pre.iter().map(|t| raw_token(t)).collect::<Vec<_>>()})).collect();
+    json!({"rows": rows, "usual": b.usual.iter().map(|col| col.iter().map(|&x| item(x)).collect::<Vec<_>>()).collect::<Vec<_>>(),
+           "structure": b.structure.iter().map(|(n, ts)| json!({"name": n, "tokens": ts.iter().map(|t| raw_token(t)).collect::<Vec<_>>()})).collect::<Vec<_>>(),
+           "player": bench.side.player, "log": super::PERMALINK,
+           "secs": bb_core::kit::round_n((bench.side.end - bench.side.t0) / 1000.0, 1), "full": b.full})
 }

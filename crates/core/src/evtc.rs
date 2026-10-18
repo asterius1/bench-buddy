@@ -58,6 +58,11 @@ fn cstr(b: &[u8]) -> String {
 
 /// The first file of a zip archive, read through its central directory.
 fn unzip_first(z: &[u8]) -> Result<Vec<u8>, String> {
+    unzip_first_upto(z, usize::MAX)
+}
+
+/// The same, stopping after `limit` bytes.
+fn unzip_first_upto(z: &[u8], limit: usize) -> Result<Vec<u8>, String> {
     let eocd = (0..z.len().saturating_sub(21))
         .rev()
         .find(|&i| u32_at(z, i) == 0x0605_4b50)
@@ -76,9 +81,22 @@ fn unzip_first(z: &[u8]) -> Result<Vec<u8>, String> {
     let data = z.get(start..start + size).ok_or("truncated zip")?;
     match method {
         0 => Ok(data.to_vec()),
-        8 => miniz_oxide::inflate::decompress_to_vec(data).map_err(|e| format!("inflate: {e:?}")),
+        8 if limit == usize::MAX => miniz_oxide::inflate::decompress_to_vec(data).map_err(|e| format!("inflate: {e:?}")),
+        8 => match miniz_oxide::inflate::decompress_to_vec_with_limit(data, limit) {
+            Ok(v) => Ok(v),
+            Err(e) if e.output.len() >= limit.min(16) => Ok(e.output),
+            Err(e) => Err(format!("inflate: {:?}", e.status)),
+        },
         m => Err(format!("zip method {m}")),
     }
+}
+
+/// The boss species of a log from its header (bytes 13-14), without reading the rest: 16199 for the
+/// Standard Kitty Golem. This finds golem logs whatever folder arcdps put them in.
+pub fn species(path: &Path) -> Option<u16> {
+    let z = std::fs::read(path).ok()?;
+    let d = unzip_first_upto(&z, 64).ok()?;
+    (d.len() >= 16 && &d[..4] == b"EVTC").then(|| u16_at(&d, 13))
 }
 
 pub fn load(path: &Path) -> Result<Log, String> {

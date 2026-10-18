@@ -4,8 +4,8 @@
 use serde_json::{json, Value};
 
 use super::{hits, EW, HAMMER, SHRAP, TWENTY};
-use crate::kit::{clk, num, sec, sgn, tone};
-use crate::omap::OMap;
+use bb_core::kit::{clk, num, sec, sgn, tone};
+use bb_core::omap::OMap;
 
 const LATE_OK: f64 = 400.0;
 const WHIRL: [&str; 3] = ["bomb burst", "nade filler", "other filler"];

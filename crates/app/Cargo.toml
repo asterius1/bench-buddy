@@ -1,0 +1,11 @@
+[package]
+name = "bb_app"
+description = "Bench Buddy's judging as one service, for the checker and the addon"
+edition = "2021"
+version = "0.1.0"
+
+[dependencies]
+serde_json = { workspace = true }
+bb_core = { workspace = true }
+bb_berserker = { workspace = true }
+bb_scrapper = { workspace = true }

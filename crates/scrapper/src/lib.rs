@@ -13,9 +13,9 @@ use std::path::Path;
 
 use serde_json::{json, Map, Value};
 
-use crate::kit::{self, num, onum, round0, round_n, Cast, Item};
-use crate::omap::OMap;
-use crate::rot;
+use bb_core::kit::{self, num, onum, round0, round_n, Cast, Item};
+use bb_core::omap::OMap;
+use bb_core::rot;
 
 pub const PERMALINK: &str = "55xd-20260422-192633_golem";
 
@@ -345,9 +345,9 @@ impl Bench {
         Bench { side, rows, log }
     }
 
+    /// The bench log from `path`, downloaded from dps.report the first time.
     pub fn load(path: &Path) -> Result<Bench, String> {
-        let s = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-        Ok(Bench::from_json(serde_json::from_str(&s).map_err(|e| e.to_string())?))
+        Ok(Bench::from_json(bb_core::web::bench_log(PERMALINK, path)?))
     }
 }
 
@@ -751,6 +751,25 @@ pub fn compare(rec: &rot::Record, bench: &Bench) -> Option<Value> {
         "twenty": TWENTY.iter().map(|x| x.to_string()).collect::<Vec<_>>(),
         "fervorIv": me.buffs[&FERVOR].iter().map(|&(a, b)| json!([num(a - t0), num(b - t0)])).collect::<Vec<_>>(),
     }))
+}
+
+/// One history row: a pull's length, DPS, cycles, how far behind at the end, Superspeed.
+pub fn summary_row(rec: &rot::Record, bench: &Bench) -> Option<Value> {
+    let x = compare(rec, bench)?;
+    let rows = x["rows"].as_array()?;
+    if rows.is_empty() {
+        return None;
+    }
+    Some(json!({"log": x["log"], "secs": x["secs"], "dps": x["dps"], "cycles": rows.len(),
+                "lag": x["lag"].as_array().and_then(|l| l.last().cloned()).unwrap_or(Value::Null),
+                "superspeed": x["buffs"]["superspeed"]}))
+}
+
+pub const VERSION: i64 = 1; // bump when the summary changes, to recompute the cache
+
+/// Icons: the bench's, plus those it lacks from the GW2 API; -37 is EI's merged "Detonate".
+pub fn icons(cache: &Path, bench: &Bench) -> Value {
+    kit::icons(cache, &bench.log["skillMap"], &[ENDO, DODGE, 31248, 6164, 6162, 6166], &[], &[(-37, 6166)])
 }
 
 /// compare() straight from a log file.

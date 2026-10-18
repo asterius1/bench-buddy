@@ -1,0 +1,13 @@
+[workspace]
+resolver = "2"
+members = ["crates/*", "addon"]
+
+[workspace.dependencies]
+serde_json = { version = "1", features = ["preserve_order"] }
+bb_core = { path = "crates/core" }
+bb_scrapper = { path = "crates/scrapper" }
+bb_berserker = { path = "crates/berserker" }
+bb_app = { path = "crates/app" }
+
+[profile.release]
+opt-level = 2
